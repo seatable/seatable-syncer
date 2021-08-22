@@ -66,6 +66,7 @@ class ImapMail(object):
         value = msg.get('References', '')
         reference_list = re.split('[(\n )(\r\n)(,)]+', value.lower())
         reference_list = list(filter(lambda x: x != '', reference_list))
+        reference_list = [ref[1:-1] for ref in reference_list]
         return json.dumps(reference_list)
 
     def get_content(self, msg):
@@ -133,7 +134,7 @@ class ImapMail(object):
             email_dict['To'] = to_address.rstrip(',')
             email_dict['References'] = references
             email_dict['UID'] = str(mail)
-            email_dict['Message_ID'] = message_id.strip().lower()
+            email_dict['Message_ID'] = message_id.strip().lower()[1:-1]
             email_dict['cc'] = cc_address.rstrip(',')
             email_dict['Content'] = content
             email_dict['Date'] = datetime.strftime(send_time, '%Y-%m-%d %H:%M:%S')
