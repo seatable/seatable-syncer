@@ -168,7 +168,8 @@ def update_links(send_time):
     other_table_id = table_info[settings.EMAIL_TABLE_NAME]
 
     thread_rows = seatable.list_rows(settings.LINK_TABLE_NAME, view_name=settings.LINK_TABLE_VIEW)
-    date_param = "Date like %s%%" % send_time
+    date_param = "Date=%s" % send_time
+
     email_rows = seatable.filter(settings.EMAIL_TABLE_NAME, date_param, view_name=settings.EMAIL_TABLE_VIEW)
 
     row_id_list = []
@@ -183,8 +184,8 @@ def update_links(send_time):
         for email_row in email_rows:
             if thread_row['Linked_Message_ID'] == email_row['Linked_Message_ID']:
                 has_dealed_row_list.append(email_row['_id'])
-                threads_last_time = datetime.strptime(thread_row.get('Last time', '1970-01-01 00:00:00'), '%Y-%m-%d %H:%M:%S')
-                email_time = datetime.strptime(email_row['Date'], '%Y-%m-%d %H:%M:%S')
+                threads_last_time = datetime.strptime(thread_row.get('Last time', '1970-01-01'), '%Y-%m-%d')
+                email_time = datetime.strptime(email_row['Date'], '%Y-%m-%d')
                 # update threads last time if email time > threads time
                 if threads_last_time < email_time:
                     last_date = email_row['Date']
@@ -225,7 +226,7 @@ def update_links(send_time):
         seatable.batch_append_rows(settings.LINK_TABLE_NAME, insert_thread_rows)
 
         # get new threads table row_id_list and other_rows_ids_map
-        date_param = "'Last time' like %s%%" % send_time
+        date_param = "'Last time'=%s" % send_time
         new_thread_rows = seatable.filter(settings.LINK_TABLE_NAME, date_param, view_name=settings.LINK_TABLE_VIEW)
         for row in new_thread_rows:
             new_row_id_list.append(row['_id'])
