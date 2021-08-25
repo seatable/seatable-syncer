@@ -250,7 +250,7 @@ def get_emails(send_date):
 
 def get_link_info(email_dict):
     linked_dict = {}
-    has_linked_list = set()
+    has_linked_set = set()
     for r_mail in email_dict:
         for f_mail in email_dict:
             if r_mail == f_mail:
@@ -268,7 +268,7 @@ def get_link_info(email_dict):
                         linked_dict[r_mail].insert(0, f_mail)
                         linked_dict[f_mail] = linked_dict[r_mail]
                         linked_dict.pop(r_mail)
-                    has_linked_list.add(f_mail)
+                    has_linked_set.add(f_mail)
                 else:
                     if linked_dict.get(f_mail):
                         linked_dict[f_mail].append(r_mail)
@@ -281,11 +281,11 @@ def get_link_info(email_dict):
                                 break
                         if not is_linked:
                             linked_dict[f_mail] = [f_mail, r_mail]
-                    has_linked_list.add(f_mail)
-                    has_linked_list.add(r_mail)
+                    has_linked_set.add(f_mail)
+                    has_linked_set.add(r_mail)
                 break
     for mail in email_dict:
-        if mail not in has_linked_list:
+        if mail not in has_linked_set:
             linked_dict[mail] = [mail]
     return linked_dict
 
