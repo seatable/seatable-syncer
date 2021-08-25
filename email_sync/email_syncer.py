@@ -154,7 +154,7 @@ def sync_email(email_list):
     for email in email_list:
         for link_message_id in linked_dict:
             if email['Message_ID'] in linked_dict[link_message_id]:
-                email['Linked_message_id'] = link_message_id
+                email['Linked_Message_ID'] = link_message_id
     seatable.batch_append_rows(settings.EMAIL_TABLE_NAME, email_list)
 
 
@@ -181,7 +181,7 @@ def update_links(send_time):
     for thread_row in thread_rows:
         last_date = ''
         for email_row in email_rows:
-            if thread_row['Linked_message_id'] == email_row['Linked_message_id']:
+            if thread_row['Linked_Message_ID'] == email_row['Linked_Message_ID']:
                 has_dealed_row_list.append(email_row['_id'])
                 threads_last_time = datetime.strptime(thread_row.get('Last time', '1970-01-01 00:00:00'), '%Y-%m-%d %H:%M:%S')
                 email_time = datetime.strptime(email_row['Date'], '%Y-%m-%d %H:%M:%S')
@@ -205,22 +205,22 @@ def update_links(send_time):
     insert_row_dict = {}
     row_message_ids_map = {}
     for row in need_insert_rows:
-        # update date if linked_message_id exist
-        if insert_row_dict.get(row['Linked_message_id']) and insert_row_dict[row['Linked_message_id']][0] < row['Date']:
-            insert_row_dict[row['Linked_message_id']] = [row['Date'], row['Subject']]
-        if not insert_row_dict.get(row['Linked_message_id']):
-            insert_row_dict[row['Linked_message_id']] = [row['Date'], row['Subject']]
+        # update date if Linked_Message_ID exist
+        if insert_row_dict.get(row['Linked_Message_ID']) and insert_row_dict[row['Linked_Message_ID']][0] < row['Date']:
+            insert_row_dict[row['Linked_Message_ID']] = [row['Date'], row['Subject']]
+        if not insert_row_dict.get(row['Linked_Message_ID']):
+            insert_row_dict[row['Linked_Message_ID']] = [row['Date'], row['Subject']]
 
         # get row_subject_ids_map for update links
-        if not row_message_ids_map.get(row['Linked_message_id'], []):
-            row_message_ids_map[row['Linked_message_id']] = [row['_id']]
+        if not row_message_ids_map.get(row['Linked_Message_ID'], []):
+            row_message_ids_map[row['Linked_Message_ID']] = [row['_id']]
         else:
-            row_message_ids_map[row['Linked_message_id']].append(row['_id'])
+            row_message_ids_map[row['Linked_Message_ID']].append(row['_id'])
 
     new_row_id_list = []
     new_other_rows_ids_map = {}
     if insert_row_dict:
-        insert_thread_rows = [{'Linked_message_id': row, 'Last time': insert_row_dict[row][0], 'Subject': insert_row_dict[row][1]} for row in insert_row_dict]
+        insert_thread_rows = [{'Linked_Message_ID': row, 'Last time': insert_row_dict[row][0], 'Subject': insert_row_dict[row][1]} for row in insert_row_dict]
         # subject and 'Last time' insert threads table
         seatable.batch_append_rows(settings.LINK_TABLE_NAME, insert_thread_rows)
 
@@ -229,7 +229,7 @@ def update_links(send_time):
         new_thread_rows = seatable.filter(settings.LINK_TABLE_NAME, date_param, view_name=settings.LINK_TABLE_VIEW)
         for row in new_thread_rows:
             new_row_id_list.append(row['_id'])
-            new_other_rows_ids_map[row['_id']] = row_message_ids_map[row['Linked_message_id']]
+            new_other_rows_ids_map[row['_id']] = row_message_ids_map[row['Linked_Message_ID']]
 
     row_id_list = new_row_id_list + row_id_list
     other_rows_ids_map.update(new_other_rows_ids_map)
