@@ -217,7 +217,7 @@ def update_links(send_time):
         seatable.batch_append_rows(settings.LINK_TABLE_NAME, insert_thread_rows)
 
         # get new threads table row_id_list and other_rows_ids_map
-        date_param = "'Last updated'=%s" % send_time
+        date_param = "'Last updated'>%s" % send_time
         new_thread_rows = seatable.filter(settings.LINK_TABLE_NAME, date_param, view_name=settings.LINK_TABLE_VIEW)
         for row in new_thread_rows:
             new_row_id_list.append(row['_id'])
