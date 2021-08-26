@@ -128,9 +128,9 @@ class ImapMail(object):
 
                 in_reply_to = self.get_reply_to(msg)
                 email_dict['To'] = to_address.rstrip(',')
-                email_dict['In_Reply_To'] = in_reply_to
+                email_dict['Reply to Message ID'] = in_reply_to
                 email_dict['UID'] = str(mail)
-                email_dict['Message_ID'] = message_id.strip().lower()[1:-1]
+                email_dict['Message ID'] = message_id.strip().lower()[1:-1]
                 email_dict['cc'] = cc_address.rstrip(',')
                 email_dict['Content'] = content
                 email_dict['Date'] = datetime.strftime(send_time, '%Y-%m-%d %H:%M:%S')
@@ -148,7 +148,7 @@ def sync_email(email_list):
     email_list = sorted(email_list, key=lambda x: datetime.strptime(x['Date'], '%Y-%m-%d %H:%M:%S'))
     message2thread = get_link_info(email_list, email_rows)
     for email in email_list:
-        email['Thread_ID'] = message2thread[email['Message_ID']]
+        email['Thread ID'] = message2thread[email['Message ID']]
     seatable.batch_append_rows(settings.EMAIL_TABLE_NAME, email_list)
 
 
@@ -162,25 +162,23 @@ def update_links(send_time):
     other_table_id = table_info[settings.EMAIL_TABLE_NAME]
 
     thread_rows = seatable.list_rows(settings.LINK_TABLE_NAME, view_name=settings.LINK_TABLE_VIEW)
-    date_param = "Date=%s" % send_time
-
+    date_param = "Date>%s" % send_time
     email_rows = seatable.filter(settings.EMAIL_TABLE_NAME, date_param, view_name=settings.EMAIL_TABLE_VIEW)
-
     row_id_list = []
     # Threads table origin link info
     other_rows_ids_map = {row['_id']: row['Link'] for row in thread_rows}
-    # for update last time
+    # for update Last updated
     threads_need_update_date_row_list = []
     # email table subject has already in threads table
     has_dealed_row_list = []
     for thread_row in thread_rows:
         last_date = ''
         for email_row in email_rows:
-            if thread_row['Thread_ID'] == email_row['Thread_ID']:
+            if thread_row['Thread ID'] == email_row['Thread ID']:
                 has_dealed_row_list.append(email_row['_id'])
-                threads_last_time = datetime.strptime(thread_row.get('Last time', '1970-01-01'), '%Y-%m-%d')
-                email_time = datetime.strptime(email_row['Date'], '%Y-%m-%d')
-                # update threads last time if email time > threads time
+                threads_last_time = datetime.strptime(thread_row.get('Last updated', '1970-01-01 00:00'), '%Y-%m-%d %H:%M')
+                email_time = datetime.strptime(email_row['Date'], '%Y-%m-%d %H:%M')
+                # update threads Last updated if email time > threads time
                 if threads_last_time < email_time:
                     last_date = email_row['Date']
                 if thread_row['_id'] not in row_id_list:
@@ -192,39 +190,38 @@ def update_links(send_time):
                         other_rows_ids_map[thread_row['_id']].append(email_row['_id'])
 
         if last_date:
-            update_last_date_row_info = {'row_id': thread_row['_id'], "row": {'Last time': last_date}}
+            update_last_date_row_info = {'row_id': thread_row['_id'], "row": {'Last updated': last_date}}
             threads_need_update_date_row_list.append(update_last_date_row_info)
-
     need_insert_rows = filter(lambda x: x['_id'] not in has_dealed_row_list, email_rows)
 
     insert_row_dict = {}
     row_message_ids_map = {}
     for row in need_insert_rows:
-        # update date if Thread_ID exist
-        if insert_row_dict.get(row['Thread_ID']) and insert_row_dict[row['Thread_ID']][0] < row['Date']:
-            insert_row_dict[row['Thread_ID']] = [row['Date'], row['Subject']]
-        if not insert_row_dict.get(row['Thread_ID']):
-            insert_row_dict[row['Thread_ID']] = [row['Date'], row['Subject']]
+        # update date if Thread ID exist
+        if insert_row_dict.get(row['Thread ID']) and insert_row_dict[row['Thread ID']][0] < row['Date']:
+            insert_row_dict[row['Thread ID']] = [row['Date'], row['Subject']]
+        if not insert_row_dict.get(row['Thread ID']):
+            insert_row_dict[row['Thread ID']] = [row['Date'], row['Subject']]
 
         # get row_subject_ids_map for update links
-        if not row_message_ids_map.get(row['Thread_ID'], []):
-            row_message_ids_map[row['Thread_ID']] = [row['_id']]
+        if not row_message_ids_map.get(row['Thread ID'], []):
+            row_message_ids_map[row['Thread ID']] = [row['_id']]
         else:
-            row_message_ids_map[row['Thread_ID']].append(row['_id'])
+            row_message_ids_map[row['Thread ID']].append(row['_id'])
 
     new_row_id_list = []
     new_other_rows_ids_map = {}
     if insert_row_dict:
-        insert_thread_rows = [{'Thread_ID': row, 'Last time': insert_row_dict[row][0], 'Subject': insert_row_dict[row][1]} for row in insert_row_dict]
-        # subject and 'Last time' insert threads table
+        insert_thread_rows = [{'Thread ID': row, 'Last updated': insert_row_dict[row][0], 'Subject': insert_row_dict[row][1]} for row in insert_row_dict]
+        # subject and 'Last updated' insert threads table
         seatable.batch_append_rows(settings.LINK_TABLE_NAME, insert_thread_rows)
 
         # get new threads table row_id_list and other_rows_ids_map
-        date_param = "'Last time'=%s" % send_time
+        date_param = "'Last updated'=%s" % send_time
         new_thread_rows = seatable.filter(settings.LINK_TABLE_NAME, date_param, view_name=settings.LINK_TABLE_VIEW)
         for row in new_thread_rows:
             new_row_id_list.append(row['_id'])
-            new_other_rows_ids_map[row['_id']] = row_message_ids_map[row['Thread_ID']]
+            new_other_rows_ids_map[row['_id']] = row_message_ids_map[row['Thread ID']]
 
     row_id_list = new_row_id_list + row_id_list
     other_rows_ids_map.update(new_other_rows_ids_map)
@@ -244,8 +241,8 @@ def get_emails(send_date):
 
 
 def get_link_info(email_list, email_rows):
-    email_dict = {email['Message_ID']: email['In_Reply_To'] for email in email_list}
-    message2thread = {email['Message_ID']: email['Thread_ID'] for email in email_rows}
+    email_dict = {email['Message ID']: email['Reply to Message ID'] for email in email_list}
+    message2thread = {email['Message ID']: email['Thread ID'] for email in email_rows}
 
     for email in email_dict:
         reply_to_id = email_dict[email]
