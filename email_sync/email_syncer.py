@@ -1,14 +1,14 @@
 import argparse
+from datetime import datetime, timedelta
+import logging
 import ssl
 import sys
+import time
 from uuid import uuid4
 
 from seatable_api.constants import ColumnTypes
 
 import settings
-import datetime
-import logging
-from datetime import datetime, timedelta
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
@@ -112,6 +112,40 @@ class ImapMail(object):
             return self.server.search(['SINCE', before_send_date])
         return []
 
+    def gen_email_dict(self, mail, send_date, mode):
+        email_dict = {}
+        data = self.server.fetch(mail, ['ENVELOPE'])
+        envelope = data[mail][b'ENVELOPE']
+        send_time = envelope.date
+        sender = envelope.sender
+        send_to = envelope.to
+        cc = envelope.cc
+        message_id = envelope.message_id.decode()
+        email_dict['Subject'] = envelope.subject.decode()
+        if mode == 'ON' and send_time.date() != send_date:
+            return
+        if mode == 'SINCE' and send_time.date() < send_date:
+            return
+        parse_address = lambda x: (x.mailbox.decode() if x.mailbox else '') + '@' + (x.host.decode() if x.host else '')
+        email_dict['From'] = parse_address(sender[0])
+        to_address = ','.join([parse_address(to) for to in send_to])
+        cc_address = ','.join([parse_address(to) for to in cc]) if cc else ''
+        msg_dict = self.server.fetch(mail, ['BODY[]'])
+        mail_body = msg_dict[mail][b'BODY[]']
+        msg = Parser().parsestr(mail_body.decode())
+        content = self.get_content(msg)
+
+        in_reply_to = self.get_reply_to(msg)
+        email_dict['To'] = to_address.rstrip(',')
+        email_dict['Reply to Message ID'] = in_reply_to
+        email_dict['UID'] = str(mail)
+        email_dict['Message ID'] = message_id.strip().lower()[1:-1]
+        email_dict['cc'] = cc_address.rstrip(',')
+        email_dict['Content'] = content
+        email_dict['Date'] = datetime.strftime(send_time, '%Y-%m-%d %H:%M:%S')
+
+        return email_dict
+
     def get_email_list(self, send_date, mode='ON'):
         send_date = datetime.strptime(send_date, '%Y-%m-%d').date()
         total_email_list = []
@@ -119,50 +153,39 @@ class ImapMail(object):
             self.server.select_folder(send_box, readonly=True)
             results = self.get_email_results(send_date, mode=mode)
             for mail in results:
-                email_dict = {}
-                data = self.server.fetch(mail, ['ENVELOPE'])
-                envelope = data[mail][b'ENVELOPE']
-                send_time = envelope.date
-                sender = envelope.sender
-                send_to = envelope.to
-                cc = envelope.cc
-                message_id = envelope.message_id.decode()
-                email_dict['Subject'] = envelope.subject.decode()
-                if mode == 'ON' and send_time.date() != send_date:
-                    continue
-                if mode == 'SINCE' and send_time.date() < send_date:
-                    continue
-                email_dict['From'] = sender[0].mailbox.decode() + '@' + sender[0].host.decode()
-                to_address = ''
-                for to in send_to:
-                    to_address += to.mailbox.decode() + '@' + to.host.decode() + ','
-                cc_address = ''
-                if cc:
-                    for c in cc:
-                        cc_address += c.mailbox.decode() + '@' + c.host.decode() + ','
-                msg_dict = self.server.fetch(mail, ['BODY[]'])
-                mail_body = msg_dict[mail][b'BODY[]']
-                msg = Parser().parsestr(mail_body.decode())
-                content = self.get_content(msg)
-
-                in_reply_to = self.get_reply_to(msg)
-                email_dict['To'] = to_address.rstrip(',')
-                email_dict['Reply to Message ID'] = in_reply_to
-                email_dict['UID'] = str(mail)
-                email_dict['Message ID'] = message_id.strip().lower()[1:-1]
-                email_dict['cc'] = cc_address.rstrip(',')
-                email_dict['Content'] = content
-                email_dict['Date'] = datetime.strftime(send_time, '%Y-%m-%d %H:%M:%S')
-                total_email_list.append(email_dict)
+                try:
+                    email_dict = self.gen_email_dict(mail, send_date, mode)
+                    if email_dict:
+                        total_email_list.append(email_dict)
+                except Exception as e:
+                    logger.exception(e)
+                    logger.error('parse email error: %s', e)
         return total_email_list
 
     def close(self):
         self.server.logout()
 
 
-def sync_email(email_list, seatable, email_table_name, email_table_view):
+def fixed_sql_query(seatable, sql):
+    try:
+        return seatable.query(sql)
+    except TypeError:
+        return []
+
+
+def query_table_rows(seatable, table_name, fields='*', conditions='', all=True):
+    where_conditions = f"where {conditions}" if conditions else ''
+    if all:
+        result = fixed_sql_query(seatable, f"select count(*) from {table_name} {where_conditions}")[0]
+        count = result['COUNT(*)']
+    else:
+        count = 100
+    return fixed_sql_query(seatable, f"select {fields} from {table_name} {where_conditions} limit {count}")
+
+
+def sync_email(email_list, seatable, email_table_name):
     # get all email-rows from email table
-    email_rows = seatable.list_rows(email_table_name, view_name=email_table_view)
+    email_rows = query_table_rows(seatable, email_table_name, all=True)
     # sort emails fetched by imap client
     email_list = sorted(email_list, key=lambda x: datetime.strptime(x['Date'], '%Y-%m-%d %H:%M:%S'))
     # fill email_list threads
@@ -170,22 +193,21 @@ def sync_email(email_list, seatable, email_table_name, email_table_view):
     seatable.batch_append_rows(email_table_name, email_list)
 
 
-def str_2_datetime(s):
-    format = format_str = '%Y-%m-%d'
-    if len(s.split(' ')) > 1:
-        format += '%H:%M'
+def str_2_datetime(s: str):
+    format_str = '%Y-%m-%dT%H:%M:%S'
+    if '+' in s:
+        s = s[:s.find('+')]
     return datetime.strptime(s, format_str)
 
 
-def update_links(send_time, seatable, email_table_name, email_table_view, link_table_name, link_table_view):
+def update_links(send_time, seatable, email_table_name, link_table_name):
     metadata = seatable.get_metadata()
     table_info = {table['name']: table['_id'] for table in metadata['tables']}
     table_id = table_info[link_table_name]
     other_table_id = table_info[email_table_name]
 
-    thread_rows = seatable.list_rows(link_table_name, view_name=link_table_view)
-    date_param = "Date>=%s" % send_time
-    email_rows = list(seatable.filter(email_table_name, date_param, view_name=email_table_view))
+    thread_rows = query_table_rows(seatable, link_table_name, all=True)
+    email_rows = query_table_rows(seatable, email_table_name, conditions=f"`Date`>='{send_time}'")
 
     row_id_list = []  # thread_row._ids to be updated links
     # Threads table origin link info
@@ -245,8 +267,7 @@ def update_links(send_time, seatable, email_table_name, email_table_view, link_t
         seatable.batch_append_rows(link_table_name, insert_thread_rows)
 
         # get new threads table row_id_list and other_rows_ids_map
-        date_param = "'Last Updated'>=%s" % send_time
-        new_thread_rows = seatable.filter(link_table_name, date_param, view_name=link_table_view)
+        new_thread_rows = query_table_rows(seatable, link_table_name, conditions=f"`Last Updated` >= '{send_time}'")
         for row in new_thread_rows:
             new_row_id_list.append(row['_id'])
             if row['Thread ID'] in row_message_ids_map:
@@ -293,29 +314,50 @@ def update_link_info(email_list, email_rows):
     return email_list
 
 
-def main():
-    args = parser.parse_args()
-    send_date = args.send_date
-    mode = args.mode if args.mode else 'ON'
-    if mode and mode.upper() not in ('ON', 'SINCE'):
-        print("mode can be 'ON' or 'SINCE'", file=sys.stderr)
-        exit(-1)
-    mode = mode.upper()
+def sync(send_date, mode=None):
     emails = get_emails(send_date, mode=mode)  # get emails sent in send_date
     if not emails:
         return
     seatable = SeaTableAPI(settings.TEMPLATE_BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
     seatable.auth()
     try:
-        sync_email(emails, seatable, settings.EMAIL_TABLE_NAME, settings.EMAIL_TABLE_VIEW)
-        update_links(send_date, seatable, settings.EMAIL_TABLE_NAME, settings.EMAIL_TABLE_VIEW, settings.LINK_TABLE_NAME, settings.LINK_TABLE_VIEW)
+        sync_email(emails, seatable, settings.EMAIL_TABLE_NAME)
+        update_links(send_date, seatable, settings.EMAIL_TABLE_NAME, settings.LINK_TABLE_NAME)
     except Exception as e:
         logger.exception(e)
         logger.error('sync-emails update-links error: %s', e)
 
 
+def main():
+    args = parser.parse_args()
+    send_date = args.date
+    mode = args.mode if args.mode else 'ON'
+    interval = args.interval * 60 * 60 if args.interval and args.interval > 0 else 6 * 60 * 60
+
+    if mode and mode.upper() not in ('ON', 'SINCE'):
+        print("mode can be 'ON' or 'SINCE'", file=sys.stderr)
+        exit(-1)
+    mode = mode.upper()
+    if send_date:
+        sync(send_date, mode=mode)
+        return
+
+    try:
+        while True:
+            try:
+                logger.info('start syncing: %s', datetime.now())
+                sync((datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'), mode='SINCE')
+                time.sleep(interval)
+            except Exception as e:
+                logger.error('cron sync error: %s', e)
+                time.sleep(interval)
+    except (KeyboardInterrupt, SystemExit):
+        exit(0)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--send-date', required=True, type=str, help='email send date')
+    parser.add_argument('--date', required=False, type=str, help='sync date')
     parser.add_argument('--mode', required=False, type=str, help='since or on, default on')
+    parser.add_argument('--interval', required=False, type=int, help='interval(hour) of loop sync')
     main()
