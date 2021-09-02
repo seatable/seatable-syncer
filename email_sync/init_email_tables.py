@@ -51,7 +51,7 @@ def main(api_token,
             print(f'table {link_table_name}, insert column {col_name} type {col_type}')
 
         # add link columns between email/table tables
-        seatable.insert_column(link_table_name, 'Link', ColumnTypes.LINK, column_data={
+        seatable.insert_column(link_table_name, 'Emails', ColumnTypes.LINK, column_data={
             'table': link_table_name,
             'other_table': email_table_name
         })

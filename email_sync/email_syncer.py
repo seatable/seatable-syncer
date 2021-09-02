@@ -211,7 +211,7 @@ def update_links(send_time, seatable, email_table_name, link_table_name):
 
     row_id_list = []  # thread_row._ids to be updated links
     # Threads table origin link info
-    other_rows_ids_map = {row['_id']: row['Link'] for row in thread_rows}
+    other_rows_ids_map = {row['_id']: row['Emails'] for row in thread_rows}
     # for update Last Updated
     threads_need_update_date_row_list = []
     # email table subject has already in threads table
@@ -233,7 +233,7 @@ def update_links(send_time, seatable, email_table_name, link_table_name):
 
                 # update table link's other_rows of other table
                 if not other_rows_ids_map.get(thread_row['_id'], []):
-                    other_rows_ids_map[thread_row['_id']] = thread_row['Link'] + [email_row['_id']]
+                    other_rows_ids_map[thread_row['_id']] = thread_row['Emails'] + [email_row['_id']]
                 else:
                     if email_row['_id'] not in other_rows_ids_map[thread_row['_id']]:
                         other_rows_ids_map[thread_row['_id']].append(email_row['_id'])
@@ -275,7 +275,7 @@ def update_links(send_time, seatable, email_table_name, link_table_name):
 
     row_id_list = list(set(new_row_id_list + row_id_list))
     other_rows_ids_map.update(new_other_rows_ids_map)
-    link_id = seatable.get_column_link_id(link_table_name, 'Link', view_name=None)
+    link_id = seatable.get_column_link_id(link_table_name, 'Emails', view_name=None)
 
     seatable.batch_update_links(link_id, table_id, other_table_id, row_id_list, other_rows_ids_map)
     seatable.batch_update_rows(link_table_name, threads_need_update_date_row_list)
