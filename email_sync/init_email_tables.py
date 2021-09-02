@@ -55,7 +55,7 @@ def main(api_token,
             'table': link_table_name,
             'other_table': email_table_name
         })
-        seatable.rename_column(email_table_name, link_table_name, 'threads')
+        seatable.rename_column(email_table_name, link_table_name, 'Threads')
     except Exception as e:
         print('create tables error: ', e, file=sys.stderr)
         exit(-1)
