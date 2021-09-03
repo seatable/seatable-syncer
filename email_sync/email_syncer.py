@@ -120,8 +120,8 @@ class ImapMail(object):
         sender = envelope.sender
         send_to = envelope.to
         cc = envelope.cc
-        message_id = envelope.message_id.decode()
-        email_dict['Subject'] = envelope.subject.decode()
+        message_id = envelope.message_id.decode() if envelope.message_id else ''
+        email_dict['Subject'] = envelope.subject.decode() if envelope.subject else ''
         if mode == 'ON' and send_time.date() != send_date:
             return
         if mode == 'SINCE' and send_time.date() < send_date:
@@ -173,31 +173,69 @@ def fixed_sql_query(seatable, sql):
         return []
 
 
-def query_table_rows(seatable, table_name, fields='*', conditions='', all=True):
+def query_table_rows(seatable, table_name, fields='*', conditions='', all=True, limit=None):
     where_conditions = f"where {conditions}" if conditions else ''
     if all:
         result = fixed_sql_query(seatable, f"select count(*) from {table_name} {where_conditions}")[0]
-        count = result['COUNT(*)']
+        limit = result['COUNT(*)']
     else:
-        count = 100
-    return fixed_sql_query(seatable, f"select {fields} from {table_name} {where_conditions} limit {count}")
+        limit = 100 if not limit else limit
+    return fixed_sql_query(seatable, f"select {fields} from {table_name} {where_conditions} limit {limit}")
 
 
-def sync_email(email_list, seatable, email_table_name):
+def sync_email(email_list, seatable, email_table_name, send_date):
+    last_month_date = (datetime.strptime(send_date, '%Y-%m-%d') - timedelta(days=30)).strftime('%Y-%m-%d')
     # get all email-rows from email table
-    email_rows = query_table_rows(seatable, email_table_name, all=True)
+    email_rows = query_table_rows(seatable, email_table_name, fields='`Message ID`, `Thread ID`', conditions=f"`Date`>='{last_month_date}'")
     # sort emails fetched by imap client
     email_list = sorted(email_list, key=lambda x: datetime.strptime(x['Date'], '%Y-%m-%d %H:%M:%S'))
     # fill email_list threads
-    email_list = update_link_info(email_list, email_rows)
+    email_list = update_link_info(seatable, email_table_name, email_list, email_rows)
     seatable.batch_append_rows(email_table_name, email_list)
 
 
+def update_link_info(seatable, email_table_name, email_list, email_rows):
+    message2thread = {email['Message ID']: email['Thread ID'] for email in email_rows}
+    email_list = [email for email in email_list if email['Message ID'] not in message2thread]
+
+    # checkout no reply thread messages
+    no_thread_reply_message_ids = [email['Reply to Message ID'] for email in email_list \
+                                   if email['Reply to Message ID'] not in message2thread]
+    step = 100
+    for i in range(0, len(no_thread_reply_message_ids), step):
+        message_ids_str = ', '.join([f"'{message_id}'" for message_id in no_thread_reply_message_ids[i: i+step]])
+        conditions = f"`Message ID`in ({message_ids_str})"
+        earlier_email_rows = query_table_rows(seatable, email_table_name,
+                                              fields='`Message ID`, `Thread ID`',
+                                              conditions=conditions,
+                                              limit=step)
+        for row in earlier_email_rows:
+            message2thread[row['Message ID']] = row['Thread ID']
+
+    for email in email_list:
+        reply_to_id = email['Reply to Message ID']
+        message_id = email['Message ID']
+        if reply_to_id in message2thread:
+            message2thread[message_id] = message2thread[reply_to_id]
+        else:
+            thread_id = uuid4().hex
+            message2thread[message_id] = thread_id
+
+    for email in email_list:
+        email['Thread ID'] = message2thread[email['Message ID']]
+    return email_list
+
+
 def str_2_datetime(s: str):
-    format_str = '%Y-%m-%dT%H:%M:%S'
     if '+' in s:
         s = s[:s.find('+')]
-    return datetime.strptime(s, format_str)
+    formats = ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M']
+    for f in formats:
+        try:
+            return datetime.strptime(s, f)
+        except:
+            pass
+    raise Exception(f"date {s} can't be transfered to datetime")
 
 
 def update_links(send_time, seatable, email_table_name, link_table_name):
@@ -206,8 +244,8 @@ def update_links(send_time, seatable, email_table_name, link_table_name):
     table_id = table_info[link_table_name]
     other_table_id = table_info[email_table_name]
 
-    thread_rows = query_table_rows(seatable, link_table_name, all=True)
-    email_rows = query_table_rows(seatable, email_table_name, conditions=f"`Date`>='{send_time}'")
+    thread_rows = query_table_rows(seatable, link_table_name)
+    email_rows = query_table_rows(seatable, email_table_name, fields='`_id`, `Thread ID`, `Date`, `Subject`', conditions=f"`Date`>='{send_time}'")
 
     row_id_list = []  # thread_row._ids to be updated links
     # Threads table origin link info
@@ -248,10 +286,11 @@ def update_links(send_time, seatable, email_table_name, link_table_name):
     row_message_ids_map = {}  # {thread_id: [email_row._id...]}
     for row in need_insert_rows:
         # update date if Thread ID exist
-        if insert_row_dict.get(row['Thread ID']) and insert_row_dict[row['Thread ID']][0] < row['Date']:
-            insert_row_dict[row['Thread ID']] = [row['Date'], row['Subject']]
+        # because date in result of sql-query like '2021-01-01T00:00:00+08:00', so need to transfer to like '2021-01-01 00:00'
+        if insert_row_dict.get(row['Thread ID']) and str_2_datetime(insert_row_dict[row['Thread ID']][0]) < str_2_datetime(row['Date']):
+            insert_row_dict[row['Thread ID']] = [str_2_datetime(insert_row_dict[row['Thread ID']][0]).strftime('%Y-%m-%d %H:%M'), row['Subject']]
         if not insert_row_dict.get(row['Thread ID']):
-            insert_row_dict[row['Thread ID']] = [row['Date'], row['Subject']]
+            insert_row_dict[row['Thread ID']] = [str_2_datetime(row['Date']).strftime('%Y-%m-%d %H:%M'), row['Subject']]
 
         # get row_subject_ids_map for update links
         if not row_message_ids_map.get(row['Thread ID'], []):
@@ -296,24 +335,6 @@ def get_emails(send_date, mode='ON'):
     return []
 
 
-def update_link_info(email_list, email_rows):
-    message2thread = {email['Message ID']: email['Thread ID'] for email in email_rows}
-    email_list = [email for email in email_list if email['Message ID'] not in message2thread]
-    email_dict = {email['Message ID']: email['Reply to Message ID'] for email in email_list}
-
-    for email in email_dict:
-        reply_to_id = email_dict[email]
-        if reply_to_id in message2thread:
-            message2thread[email] = message2thread[reply_to_id]
-        else:
-            thread_id = uuid4().hex
-            message2thread[email] = thread_id
-
-    for email in email_list:
-        email['Thread ID'] = message2thread[email['Message ID']]
-    return email_list
-
-
 def sync(send_date, mode=None):
     emails = get_emails(send_date, mode=mode)  # get emails sent in send_date
     if not emails:
@@ -321,7 +342,7 @@ def sync(send_date, mode=None):
     seatable = SeaTableAPI(settings.TEMPLATE_BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
     seatable.auth()
     try:
-        sync_email(emails, seatable, settings.EMAIL_TABLE_NAME)
+        sync_email(emails, seatable, settings.EMAIL_TABLE_NAME, send_date)
         update_links(send_date, seatable, settings.EMAIL_TABLE_NAME, settings.LINK_TABLE_NAME)
     except Exception as e:
         logger.exception(e)
