@@ -399,5 +399,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', required=False, type=str, help='sync date')
     parser.add_argument('--mode', required=False, type=str, help='since or on, default on')
-    parser.add_argument('--interval', required=False, type=int, help='interval(hour) of loop sync')
+    parser.add_argument('--interval', required=False, type=int, help='interval(hour) of periodically sync')
     main()
