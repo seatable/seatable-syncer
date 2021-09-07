@@ -359,7 +359,8 @@ def sync(send_date, mode='ON'):
         # insert new emails
         seatable.batch_append_rows(settings.EMAIL_TABLE_NAME, email_list)
         # insert new thread rows
-        seatable.batch_append_rows(settings.LINK_TABLE_NAME, new_thread_rows)
+        if new_thread_rows:
+            seatable.batch_append_rows(settings.LINK_TABLE_NAME, new_thread_rows)
 
         # update threads Last Updated and Emails
         update_threads(seatable, settings.EMAIL_TABLE_NAME, settings.LINK_TABLE_NAME, email_list, to_be_updated_thread_dict)
