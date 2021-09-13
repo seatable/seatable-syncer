@@ -1,0 +1,8 @@
+flask
+flask-cors
+imapclient
+seatable-api>=2.3.2
+gevent
+flask-sqlalchemy
+ddtrace
+apscheduler
