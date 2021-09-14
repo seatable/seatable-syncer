@@ -15,10 +15,11 @@ MYSQL_PASSWORD = ''
 MYSQL_PORT = 3306
 MYSQL_DB = 'email_sync_jobs'
 
+DTABLE_WEB_SERVICE_URL = 'http://127.0.0.1:8000'
+
 
 try:
     if os.path.isfile(os.path.join(basedir, 'sync_settings.py')):
-        sys.path.insert(0, os.path.join(basedir, 'sync_settings.py'))
         from sync_settings import *
 except:
     pass
@@ -33,6 +34,7 @@ class Config:
 
     # General Config
     SECRET_KEY = SECRET_KEY
+    DTABLE_WEB_SERVICE_URL = DTABLE_WEB_SERVICE_URL
 
     # Database
     SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI

@@ -9,7 +9,6 @@ from uuid import uuid4
 from seatable_api import SeaTableAPI
 from seatable_api.constants import ColumnTypes
 
-import settings
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
@@ -421,6 +420,7 @@ def main():
 
 
 if __name__ == "__main__":
+    import settings
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', required=False, type=str, help='sync date')
     parser.add_argument('--mode', required=False, type=str, help='since or on, default on')

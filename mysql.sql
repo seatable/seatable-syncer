@@ -1,5 +1,5 @@
 CREATE TABLE `email_sync_jobs` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `dtable_uuid` varchar(32) NOT NULL,
   `api_token` varchar(50) NOT NULL,
