@@ -1,0 +1,26 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /opt/seatable/shared/seatable/logs/dtable_web.log
+    tags: ["dtable-web"]
+
+  - type: log
+    paths:
+      - /opt/seatable/shared/seatable/logs/dtable-server.log
+    tags: ["dtable-server"]
+
+  - type: log
+    paths:
+      - /opt/seatable/shared/seatable/logs/dtable-events.log
+    tags: ["dtable-events"]
+
+
+output.redis:
+  hosts: ["redis host"]
+  password: "redis password"
+  db: 0
+  timeout: 5
+  keys:
+    - key: "seatable-error-logs"
+      when.contains:
+        message: "[ERROR]"
