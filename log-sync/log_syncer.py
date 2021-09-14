@@ -40,10 +40,14 @@ class LogSyncer(object):
         else:
             log_time = self.now()
         msg = '```\n' + msg + '\n```'
-        tag = '-'.join(log['tags'])
-        print(log_time, tag, log)
+        service = '-'.join(log['tags'])
+        print(log_time, service, log)
 
-        row_data = {'Tag': tag, 'Time': log_time, 'Log': msg}
+        row_data = {
+            'Service': service,
+            'Time': log_time,
+            'Log': msg
+        }
         self.base.append_row(table_name, row_data)
 
     def start(self):
