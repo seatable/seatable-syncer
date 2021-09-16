@@ -11,10 +11,11 @@ from seatable_api import SeaTableAPI
 from seatable_api.constants import ColumnTypes
 
 from app import db
-from config import basedir
+from config import basedir, Config
 from email_sync.email_syncer import sync
 from models.email_sync_models import EmailSyncJobs
 from scheduler import scheduler_jobs_manager
+from utils import check_api_token_and_resources, check_imap_account
 from utils.constants import EMAIL_SYNC_JOB_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -28,17 +29,43 @@ with open(table_file, 'r') as f:
 
 
 # list running email_sync jobs
-@app.route('/api/v1/running/email-sync-jobs/', methods=['GET'])
+@app.route('/api/v1/email-sync/running-jobs/', methods=['GET'])
 def running_email_sync_jobs_api():
     jobs = scheduler_jobs_manager.get_jobs()
     return {'jobs': jobs}, 200
 
 
-# list email_sync jobs and add new eamil sync job
-@app.route('/api/v1/email-sync-jobs/', methods=['GET', 'POST', 'DELETE'])
+# list email_sync jobs by dtable_uuids
+@app.route('/api/v1/email-sync/jobs-by-dtable-uuids/', methods=['POST'])
+@cross_origin()
+def list_email_sync_jobs_api():
+    try:
+        data = json.loads(request.data)
+    except:
+        return {'error_msg': 'Bad request.'}, 400
+    dtable_uuids = data.get('dtable_uuids')
+    if not dtable_uuids or not isinstance(dtable_uuids, list):
+        return {'error_msg': 'dtable_uuids request.'}, 400
+
+    jobs = EmailSyncJobs.query.filter(EmailSyncJobs.dtable_uuid.in_(dtable_uuids)).all()
+    email_sync_job_list, index_flags = [], {}
+    for job in jobs:
+        if job.dtable_uuid not in index_flags:
+            index_flags[job.dtable_uuid] = len(email_sync_job_list)
+            email_sync_job_list.append({
+                'dtable_uuid': job.dtable_uuid,
+                'job_list': [job.to_dict()]
+            })
+        else:
+            email_sync_job_list[index_flags[job.dtable_uuid]]['job_list'].append(job.to_dict())
+
+    return {'email_sync_job_list': email_sync_job_list}, 200
+
+
+# list email_sync jobs by dtable_uuid and add new eamil sync job
+@app.route('/api/v1/email-sync/jobs/', methods=['GET', 'POST', 'DELETE'])
 @cross_origin()
 def email_sync_jobs_api():
-    # TODO: some resource check, such as api-token
     if request.method == 'GET':
         dtable_uuid = request.args.get('dtable_uuid')
         if not dtable_uuid:
@@ -81,6 +108,14 @@ def email_sync_jobs_api():
             CronTrigger.from_crontab(cron_expr)
         except:
             return {'error_msg': 'cron_expr error.'}, 400
+
+        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, table_names=[email_table_name, link_table_name])
+        if error_msg:
+            return {'error_msg': 'api_token or email link table invalid, please reset again.'}, 400
+
+        error_msg = check_imap_account(imap_server, email_user, email_password)
+        if error_msg:
+            return {'error_msg': 'imap_server email_user email_password invalid, please reset again.'}, 400
 
         job = EmailSyncJobs(
             name=name,
@@ -136,10 +171,9 @@ def email_sync_jobs_api():
 
 
 # update email_sync job and remove email_sync job
-@app.route('/api/v1/email-sync-jobs/<job_id>/', methods=['PUT', 'DELETE'])
+@app.route('/api/v1/email-sync/jobs/<job_id>/', methods=['PUT', 'DELETE'])
 @cross_origin()
 def email_sync_job_api(job_id):
-    # TODO: some resource check, such as api-token
     if request.method == 'PUT':
         try:
             data = json.loads(request.data)
@@ -183,6 +217,14 @@ def email_sync_job_api(job_id):
             job.email_table_name = email_table_name
         if link_table_name:
             job.link_table_name = link_table_name
+
+        error_msg = check_api_token_and_resources(job.api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=job.dtable_uuid, table_names=[job.email_table_name, job.link_table_name])
+        if error_msg:
+            return {'error_msg': 'api_token, email table or link table invalid, please reset again.'}, 400
+
+        error_msg = check_imap_account(job.imap_server, job.email_user, job.email_password)
+        if error_msg:
+            return {'error_msg': 'imap_server, email_user or email_password invalid, please reset again.'}, 400
 
         try:
             db.session.commit()

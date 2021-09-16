@@ -1,0 +1,2 @@
+class SchedulerJobInvalidException(Exception):
+    pass
