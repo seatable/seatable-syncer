@@ -1,5 +1,6 @@
 import logging
 
+import pytz
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 # from apscheduler.schedulers.gevent import GeventScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -24,7 +25,7 @@ class ScheduelrJobsManager:
     def __init__(self):
         # self.email_sync_scheduler = GeventScheduler()
         self.email_sync_scheduler = BackgroundScheduler()
-        self.email_sync_scheduler.add_listener(self.update_last_trigger_time, mask=EVENT_JOB_EXECUTED)
+        self.email_sync_scheduler.add_listener(self.update_last_trigger_time, mask=(EVENT_JOB_EXECUTED | EVENT_JOB_ERROR))
         self.email_sync_scheduler.add_listener(self.invalidate_job, mask=EVENT_JOB_ERROR)
 
     def get_jobs(self):
@@ -95,7 +96,9 @@ class ScheduelrJobsManager:
             try:
                 if job_id.startswith(EMAIL_SYNC_JOB_PREFIX):
                     db_job_id = job_id[len(EMAIL_SYNC_JOB_PREFIX):]
-                    EmailSyncJobs.query.filter(EmailSyncJobs.id == db_job_id).update({'last_trigger_time': scheduled_run_time})
+                    EmailSyncJobs.query.filter(EmailSyncJobs.id == db_job_id).update({
+                        'last_trigger_time': scheduled_run_time.astimezone(pytz.timezone('UTC'))
+                    })
                     db.session.commit()
             except Exception as e:
                 logger.error('update job: %s last_trigger_time error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)

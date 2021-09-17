@@ -40,6 +40,6 @@ class EmailSyncJobs(db.Model):
             'email_password': self.email_password,
             'email_table_name': self.email_table_name,
             'link_table_name': self.link_table_name,
-            'last_trigger_time': str(self.last_trigger_time) if self.last_trigger_time else None,
+            'last_trigger_time': str(self.last_trigger_time.isoformat()) if self.last_trigger_time else None,
             'is_valid': self.is_valid
         }
