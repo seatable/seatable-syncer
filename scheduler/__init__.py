@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytz
@@ -45,7 +46,7 @@ class ScheduelrJobsManager:
 
     def add_email_sync_job(self, db_job):
         logger.info('add email job: %s', db_job)
-        trigger = CronTrigger.from_crontab(db_job.cron_expr)
+        trigger = CronTrigger(**json.loads(db_job.schedule_detail))
         return self.email_sync_scheduler.add_job(
             email_sync_job_func,
             trigger=trigger,

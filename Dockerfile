@@ -3,21 +3,15 @@ FROM python:3.7-alpine
 VOLUME [ "/shared" ]
 WORKDIR /data
 
-RUN apk add python3-dev 
-RUN apk add libffi-dev
-RUN apk add gcc
-RUN apk add musl-dev
-RUN apk add make
-RUN apk add libevent-dev
-RUN apk add build-base
+# Install dependencies
+# gcc libc-dev linux-headers are libs and tools for uwsgi building
+# clear not required data at the end to reduce image size
+RUN set -e; \
+    apk add --virtual .build-deps \
+    gcc \
+    libc-dev \
+    linux-headers \
+; \
+apk del .build-deps;
 
-COPY sync_server.py .
-COPY tables.json .
-COPY email_syncer.py .
-COPY settings.py .
-COPY requirements.txt .
-COPY start.sh .
-
-RUN pip3 install -r requirements.txt
-
-CMD sh start.sh
+RUN apk add tzdata;

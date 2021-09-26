@@ -1,3 +1,5 @@
+import json
+
 from app import db
 from utils.constants import EMAIL_SYNC_JOB_PREFIX
 
@@ -8,7 +10,7 @@ class EmailSyncJobs(db.Model):
     name = db.Column(db.String(255), nullable=False)
     dtable_uuid = db.Column(db.String(32), nullable=False, index=True)
     api_token = db.Column(db.String(50), nullable=False)
-    cron_expr = db.Column(db.String(50), nullable=False)
+    schedule_detail = db.Column(db.String(255), nullable=False)
     imap_server = db.Column(db.String(255), nullable=False)
     email_user = db.Column(db.String(255), nullable=False)
     email_password = db.Column(db.String(255), nullable=False)
@@ -34,7 +36,7 @@ class EmailSyncJobs(db.Model):
             'name': self.name,
             'dtable_uuid': self.dtable_uuid,
             'api_token': self.api_token,
-            'cron_expr': self.cron_expr,
+            'schedule_detail': json.loads(self.schedule_detail),
             'imap_server': self.imap_server,
             'email_user': self.email_user,
             'email_password': self.email_password,

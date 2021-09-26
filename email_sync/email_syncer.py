@@ -369,6 +369,9 @@ def sync(send_date,
         if new_thread_rows:
             seatable.batch_append_rows(link_table_name, new_thread_rows)
 
+        # wait several seconds for dtable-db
+        time.sleep(3)
+
         # update threads Last Updated and Emails
         update_threads(seatable, email_table_name, link_table_name, email_list, to_be_updated_thread_dict)
     except Exception as e:

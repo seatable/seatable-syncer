@@ -3,7 +3,7 @@ CREATE TABLE `email_sync_jobs` (
   `name` varchar(255) NOT NULL,
   `dtable_uuid` varchar(32) NOT NULL,
   `api_token` varchar(50) NOT NULL,
-  `cron_expr` varchar(50) NOT NULL,
+  `schedule_detail` varchar(255) NOT NULL DEFAULT '',
   `imap_server` varchar(255) NOT NULL,
   `email_user` varchar(255) NOT NULL,
   `email_password` varchar(255) NOT NULL,

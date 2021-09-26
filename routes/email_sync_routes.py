@@ -86,17 +86,17 @@ def email_sync_jobs_api():
         except:
             return {'error_msg': 'Bad request.'}, 400
 
-        name = data.get('name')
+        name = data.get('name', 'Untitled')
         dtable_uuid = data.get('dtable_uuid')
         api_token = data.get('api_token')
-        cron_expr = data.get('cron_expr')
+        schedule_detail = data.get('schedule_detail')
         imap_server = data.get('imap_server')
         email_user = data.get('email_user')
         email_password = data.get('email_password')
         email_table_name = data.get('email_table_name')
         link_table_name = data.get('link_table_name')
 
-        if not all([name, dtable_uuid, api_token, imap_server, email_user, email_password, email_table_name, link_table_name]):
+        if not all([name, dtable_uuid, api_token, imap_server, email_user, email_password, email_table_name, link_table_name, schedule_detail]):
             return {'error_msg': 'Bad request.'}, 400
 
         try:
@@ -104,14 +104,16 @@ def email_sync_jobs_api():
         except:
             return {'error_msg': 'dtable_uuid invalid.'}, 400
 
+        if not isinstance(schedule_detail, dict):
+            return {'error_msg': 'schedule_detail invalid.'}, 400
         try:
-            CronTrigger.from_crontab(cron_expr)
+            CronTrigger(**schedule_detail)
         except:
-            return {'error_msg': 'cron_expr error.'}, 400
+            return {'error_msg': 'schedule_detail error.'}, 400
 
-        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, table_names=[email_table_name, link_table_name])
+        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, email_table_name=email_table_name, link_table_name=link_table_name)
         if error_msg:
-            return {'error_msg': 'api_token or email link table invalid, please reset again.'}, 400
+            return {'error_msg': error_msg}, 400
 
         error_msg = check_imap_account(imap_server, email_user, email_password)
         if error_msg:
@@ -121,7 +123,7 @@ def email_sync_jobs_api():
             name=name,
             dtable_uuid=dtable_uuid,
             api_token=api_token,
-            cron_expr=cron_expr,
+            schedule_detail=json.dumps(schedule_detail),
             imap_server=imap_server,
             email_user=email_user,
             email_password=email_password,
@@ -182,7 +184,7 @@ def email_sync_job_api(job_id):
 
         name = data.get('name')
         api_token = data.get('api_token')
-        cron_expr = data.get('cron_expr')
+        schedule_detail = data.get('schedule_detail')
         imap_server = data.get('imap_server')
         email_user = data.get('email_user')
         email_password = data.get('email_password')
@@ -190,7 +192,7 @@ def email_sync_job_api(job_id):
         link_table_name = data.get('link_table_name')
 
         try:
-            job = EmailSyncJobs.query.filter(id=job_id).first()
+            job = EmailSyncJobs.query.filter(EmailSyncJobs.id == job_id).first()
             if not job:
                 return {'error_msg': 'Job not found.'}, 404
         except Exception as e:
@@ -201,12 +203,14 @@ def email_sync_job_api(job_id):
             job.name = name
         if api_token:
             job.api_token = api_token
-        if cron_expr:
+        if schedule_detail:
+            if not isinstance(schedule_detail, dict):
+                return {'error_msg': 'schedule_detail error.'}, 400
             try:
-                CronTrigger.from_crontab(cron_expr)
+                CronTrigger(**schedule_detail)
             except:
-                return {'error_msg': 'cron_expr invalid.'}, 400
-            job.cron_expr = cron_expr
+                return {'error_msg': 'schedule_detail invalid.'}, 400
+            job.schedule_detail = json.dumps(schedule_detail)
         if imap_server:
             job.imap_server = imap_server
         if email_user:
@@ -218,9 +222,9 @@ def email_sync_job_api(job_id):
         if link_table_name:
             job.link_table_name = link_table_name
 
-        error_msg = check_api_token_and_resources(job.api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=job.dtable_uuid, table_names=[job.email_table_name, job.link_table_name])
+        error_msg = check_api_token_and_resources(job.api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=job.dtable_uuid, email_table_name=email_table_name, link_table_name=link_table_name)
         if error_msg:
-            return {'error_msg': 'api_token, email table or link table invalid, please reset again.'}, 400
+            return {'error_msg': error_msg}, 400
 
         error_msg = check_imap_account(job.imap_server, job.email_user, job.email_password)
         if error_msg:
@@ -241,7 +245,7 @@ def email_sync_job_api(job_id):
 
     else:
         try:
-            EmailSyncJobs.query.filter(id=job_id).delete()
+            EmailSyncJobs.query.filter(EmailSyncJobs.id == job_id).delete()
             db.session.commit()
         except Exception as e:
             logger.error('delete job: %s error: %s', job_id, e)
@@ -256,28 +260,23 @@ def email_sync_job_api(job_id):
 
 
 # sync emails
-@app.route('/api/v1/sync-emails/', methods=['POST'])
+@app.route('/api/v1/email-sync/run-job/<job_id>/', methods=['POST'])
 @cross_origin()
-def sync_emails_api():
+def sync_emails_api(job_id):
     try:
         data = json.loads(request.data)
     except:
         return {'error_msg': 'Bad request.'}, 400
 
-    email_server = data.get('email_server')
-    email_user = data.get('email_user')
-    email_password = data.get('email_password')
-    api_token = data.get('api_token')
-    dtable_web_service_url = data.get('dtable_web_service_url')
-    email_table_name = data.get('email_table_name')
-    link_table_name = data.get('link_table_name')
-
     send_date_str = data.get('send_date')
-    mode = data.get('mode', 'ON')
+    mode = data.get('mode', 'ON').upper()
+    dtable_uuid = data.get('dtable_uuid')
 
-    if not all([email_server, email_user, email_password, api_token, dtable_web_service_url,
-                email_table_name, link_table_name]):
-        return {'error_msg': 'Bad request.'}, 400
+    if not dtable_uuid:
+        return {'error_msg': 'dtable_uuid invalid.'}, 400
+    if mode not in ['ON', 'SINCE']:
+        return {'error_msg': 'mode invalid.'}, 400
+    
     if not send_date_str:
         send_date_str = str(datetime.now().today())
     else:
@@ -286,27 +285,45 @@ def sync_emails_api():
         except:
             return {'error_msg': 'send_date invalid.'}, 400
 
+    db_job = EmailSyncJobs.query.filter(EmailSyncJobs.id == job_id).first()
+    if not db_job:
+        return {'error_msg': 'job not found.'}, 404
+    if db_job.dtable_uuid.replace('-', '') != dtable_uuid.replace('-', ''):
+        return {'error_msg': 'Permission denied.'}, 403
+
+    imap_server = db_job.imap_server
+    email_user = db_job.email_user
+    email_password = db_job.email_password
+    api_token = db_job.api_token
+    dtable_web_service_url = Config.DTABLE_WEB_SERVICE_URL
+    email_table_name = db_job.email_table_name
+    link_table_name = db_job.link_table_name
+
+    if not all([imap_server, email_user, email_password, api_token, dtable_web_service_url,
+                email_table_name, link_table_name]):
+        return {'error_msg': 'Bad request.'}, 400
+
     try:
         sync(send_date_str,
              api_token,
              dtable_web_service_url,
              email_table_name,
              link_table_name,
-             email_server,
+             imap_server,
              email_user,
              email_password,
              mode=mode)
     except Exception as e:
         logger.exception(e)
-        logger.error('sync emails email_server: %s, email_user: %s, dtable_web_service_url: %s, email table: %s, \
-            link table: %s, send_date: %s, mode: %s error: %s', email_server, email_user, dtable_web_service_url, email_table_name, link_table_name, send_date_str, mode, e)
+        logger.error('sync emails imap_server: %s, email_user: %s, dtable_web_service_url: %s, email table: %s, \
+            link table: %s, send_date: %s, mode: %s error: %s', imap_server, email_user, dtable_web_service_url, email_table_name, link_table_name, send_date_str, mode, e)
         return {'error_msg': 'Internal Server Error.'}, 500
 
     return {'success': True}, 200
 
 
 # create sync-email tables
-@app.route('/api/v1/email-sync-tables/', methods=['POST'])
+@app.route('/api/v1/email-sync/tables/', methods=['POST'])
 @cross_origin()
 def add_sync_tables_api():
     try:
@@ -315,20 +332,19 @@ def add_sync_tables_api():
         return {'error_msg': 'Bad request.'}, 400
 
     api_token = data.get('api_token')
-    dtable_web_service_url = data.get('dtable_web_service_url')
     email_table_name = data.get('email_table_name')
     link_table_name = data.get('link_table_name')
     lang = data.get('lang')
 
-    if not all([api_token, dtable_web_service_url]):
-        return {'error_msg': 'api_token or dtable_web_service_url invalid.'}, 400
+    if not api_token:
+        return {'error_msg': 'api_token invalid.'}, 400
 
     lang = lang if lang else 'en'
     email_table_name = email_table_name if email_table_name else 'Emails'
     link_table_name = link_table_name if link_table_name else 'Threads'
 
     try:
-        seatable = SeaTableAPI(api_token, dtable_web_service_url)
+        seatable = SeaTableAPI(api_token, Config.DTABLE_WEB_SERVICE_URL)
         seatable.auth()
     except Exception as e:
         logger.error('auth seatable-api error: %s', e)
@@ -364,7 +380,7 @@ def add_sync_tables_api():
     except Exception as e:
         logger.exception(e)
         logger.error('init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s', 
-                     api_token, dtable_web_service_url, email_table_name, link_table_name, lang, e)
+                     api_token, Config.DTABLE_WEB_SERVICE_URL, email_table_name, link_table_name, lang, e)
         return {'error_msg': 'Internal Server Error.'}, 500
 
     return {
