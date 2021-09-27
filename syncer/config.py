@@ -21,8 +21,20 @@ DTABLE_WEB_SERVICE_URL = 'http://127.0.0.1:8000'
 
 
 try:
-    if os.path.isfile(os.path.join(basedir, 'sync_settings.py')):
-        from sync_settings import *
+    if os.path.exists('/shared/conf/seatable_syncer_settings.py'):
+        sys.path.insert(0, '/shared/conf')
+        from seatable_syncer_settings import *
+except:
+    pass
+else:
+    if MYSQL_HOST and MYSQL_USER and MYSQL_PASSWORD:
+        SQLALCHEMY_DATABASE_URI = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % \
+            (MYSQL_USER, quote_plus(MYSQL_PASSWORD), MYSQL_HOST, MYSQL_PORT, MYSQL_DB)
+
+
+try:
+    if os.path.exists('local_settings.py'):
+        from local_settings import *
 except:
     pass
 else:

@@ -177,6 +177,8 @@ def query_table_rows(seatable, table_name, fields='*', conditions='', all=True, 
     if all:
         result = fixed_sql_query(seatable, f"select count(*) from {table_name} {where_conditions}")[0]
         limit = result['COUNT(*)']
+        if limit == 0:
+            return []
     else:
         limit = 100 if not limit else limit
     return fixed_sql_query(seatable, f"select {fields} from {table_name} {where_conditions} limit {limit}")

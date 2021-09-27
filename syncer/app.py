@@ -13,3 +13,5 @@ db.init_app(app)
 with app.app_context():
     from routes import email_sync_routes
 
+    db.create_all()
+

@@ -3,8 +3,8 @@ import logging
 
 import pytz
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
-# from apscheduler.schedulers.gevent import GeventScheduler
-from apscheduler.schedulers.background import BackgroundScheduler
+# from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.gevent import GeventScheduler
 from apscheduler.triggers.cron import CronTrigger
 from flask import current_app as app
 
@@ -24,14 +24,15 @@ class ScheduelrJobsManager:
     """
 
     def __init__(self):
-        # self.email_sync_scheduler = GeventScheduler()
-        self.email_sync_scheduler = BackgroundScheduler()
+        # self.email_sync_scheduler = BackgroundScheduler()
+        self.email_sync_scheduler = GeventScheduler()
         self.email_sync_scheduler.add_listener(self.update_last_trigger_time, mask=(EVENT_JOB_EXECUTED | EVENT_JOB_ERROR))
         self.email_sync_scheduler.add_listener(self.invalidate_job, mask=EVENT_JOB_ERROR)
 
     def get_jobs(self):
         jobs = {
-            'email_sync_jobs': []
+            'email_sync_jobs': [],
+            'email_sync_state': self.email_sync_scheduler.state
         }
         email_sync_jobs = self.email_sync_scheduler.get_jobs()
         for job in email_sync_jobs:
@@ -105,10 +106,11 @@ class ScheduelrJobsManager:
                 logger.error('update job: %s last_trigger_time error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)
 
     def _load_email_sync_jobs(self):
-        db_jobs = EmailSyncJobs.query.filter(EmailSyncJobs.is_valid == True)
-        for db_job in db_jobs:
-            job = self.add_email_sync_job(db_job)
-            logger.info('job: %s loaded', job)
+        with app.app_context():
+            db_jobs = EmailSyncJobs.query.filter(EmailSyncJobs.is_valid == True)
+            for db_job in db_jobs:
+                job = self.add_email_sync_job(db_job)
+                logger.info('job: %s loaded', job)
 
     def load_jobs(self):
         self._load_email_sync_jobs()
@@ -118,5 +120,3 @@ class ScheduelrJobsManager:
 
 
 scheduler_jobs_manager = ScheduelrJobsManager()
-scheduler_jobs_manager.load_jobs()
-scheduler_jobs_manager.start()

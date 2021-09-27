@@ -1,17 +1,16 @@
 FROM python:3.7-alpine
 
+ENV SYNC_VERSION=2.5.0
+
 VOLUME [ "/shared" ]
 WORKDIR /data
 
 # Install dependencies
-# gcc libc-dev linux-headers are libs and tools for uwsgi building
-# clear not required data at the end to reduce image size
-RUN set -e; \
-    apk add --virtual .build-deps \
-    gcc \
-    libc-dev \
-    linux-headers \
-; \
-apk del .build-deps;
+RUN apk add libc-dev gcc linux-headers build-base tzdata python3-dev libffi-dev musl-dev make
 
-RUN apk add tzdata;
+COPY syncer syncer
+COPY scripts scripts
+
+RUN pip install -r syncer/requirements.txt
+
+CMD [ "/bin/sh", "scripts/start.sh" ]
