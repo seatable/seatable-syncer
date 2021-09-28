@@ -205,7 +205,7 @@ def email_sync_job_api(job_id):
             job.api_token = api_token
         if schedule_detail:
             if not isinstance(schedule_detail, dict):
-                return {'error_msg': 'schedule_detail error.'}, 400
+                return {'error_msg': 'schedule_detail invalid.'}, 400
             try:
                 CronTrigger(**schedule_detail)
             except:

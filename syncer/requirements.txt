@@ -6,5 +6,4 @@ flask-sqlalchemy
 apscheduler
 pytz
 pymysql
-uwsgi
 gevent

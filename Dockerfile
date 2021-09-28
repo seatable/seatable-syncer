@@ -8,6 +8,7 @@ WORKDIR /data
 # Install dependencies
 RUN apk add libc-dev gcc linux-headers build-base tzdata python3-dev libffi-dev musl-dev make
 
+RUN pip install gevent
 COPY syncer syncer
 COPY scripts scripts
 

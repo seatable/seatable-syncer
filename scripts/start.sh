@@ -29,8 +29,8 @@ export LOG_DIR='/shared/logs'
 
 
 cd /data/syncer
-# uwsgi --ini uwsgi.ini
-python main.py & >> /shared/logs/gevent.log 2>&1
+ls -l
+python main.py >> /shared/logs/gevent.log 2>&1 &
 
 
 wait
