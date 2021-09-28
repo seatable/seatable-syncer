@@ -1,11 +1,16 @@
 import json
 import os
 import ssl
+import logging
 
+import pytz
 from seatable_api import SeaTableAPI
+from tzlocal import get_localzone
 
 from config import basedir
 from email_sync.email_syncer import ImapMail
+
+logger = logging.getLogger(__name__)
 
 
 table_file = os.path.join(basedir, 'email_sync', 'tables.json')
@@ -81,3 +86,18 @@ def check_imap_account(imap_server, email_user, email_password):
         return 'imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e)
 
     return None
+
+
+def utc_datetime_to_isoformat_timestr(utc_datetime):
+    if not utc_datetime:
+        return ''
+    try:
+        # The second way of building a localized time is by converting an existing
+        # localized time using the standard astimezone() method:
+        utc_datetime = utc_datetime.replace(microsecond=0)
+        utc_datetime = pytz.utc.localize(utc_datetime)
+        isoformat_timestr = utc_datetime.astimezone(get_localzone()).isoformat()
+        return isoformat_timestr
+    except Exception as e:
+        logger.error(e)
+        return ''

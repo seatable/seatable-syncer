@@ -1,6 +1,7 @@
 import json
 
 from app import db
+from utils import utc_datetime_to_isoformat_timestr
 from utils.constants import EMAIL_SYNC_JOB_PREFIX
 
 
@@ -42,6 +43,6 @@ class EmailSyncJobs(db.Model):
             'email_password': self.email_password,
             'email_table_name': self.email_table_name,
             'link_table_name': self.link_table_name,
-            'last_trigger_time': str(self.last_trigger_time.isoformat()) if self.last_trigger_time else None,
+            'last_trigger_time': utc_datetime_to_isoformat_timestr(self.last_trigger_time),
             'is_valid': self.is_valid
         }
