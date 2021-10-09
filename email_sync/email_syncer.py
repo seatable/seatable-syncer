@@ -7,13 +7,11 @@ import time
 from uuid import uuid4
 
 from seatable_api import SeaTableAPI
-from seatable_api.constants import ColumnTypes
 
 import settings
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
-from io import BytesIO
 
 logging.basicConfig(
     filename='email_sync.log',
