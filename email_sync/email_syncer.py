@@ -385,6 +385,8 @@ def update_emails(seatable, email_table_name, email_list):
         'row_id': message_id_row_id_dict[key],
         'row': {'Attachment': value}
     } for key, value in message_id_attachment_dict.items()]
+
+    # update attachment rows
     seatable.batch_update_rows(email_table_name, to_be_updated_attachment_rows)
 
 
