@@ -13,6 +13,7 @@ import settings
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
+from io import BytesIO
 
 logging.basicConfig(
     filename='email_sync.log',
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class ImapMail(object):
-    def __init__(self, serveraddress, user, passwd, port=None, timeout=None, ssl_context=None):
+    def __init__(self, serveraddress, user, passwd, seatable, port=None, timeout=None, ssl_context=None):
         self.serveraddress = serveraddress
         self.user = user
         self.passwd = passwd
@@ -33,6 +34,7 @@ class ImapMail(object):
         self.timeout = timeout
         self.ssl_context = ssl_context
         self.server = None
+        self.seatable = seatable
 
     def client(self):
         try:
@@ -71,6 +73,17 @@ class ImapMail(object):
     def get_reply_to(msg):
         value = msg.get('In-Reply-To', '').strip().lower()[1:-1]
         return value
+
+    def get_attachments(self, msg):
+        file_list = []
+        for part in msg.walk():
+            filename = part.get_filename()
+            if filename is not None:
+                filename = self.decode_str(filename)
+                data = part.get_payload(decode=True)
+                info_dict = self.seatable.upload_bytes_file(filename, data)
+                file_list.append(info_dict)
+        return file_list
 
     def get_content(self, msg):
         content = ''
@@ -136,6 +149,7 @@ class ImapMail(object):
         content = self.get_content(msg)
 
         in_reply_to = self.get_reply_to(msg)
+        email_dict['Attachment'] = self.get_attachments(msg)
         email_dict['To'] = to_address.rstrip(',')
         email_dict['Reply to Message ID'] = in_reply_to
         email_dict['UID'] = str(mail)
@@ -195,11 +209,12 @@ def str_2_datetime(s: str):
     raise Exception(f"date {s} can't be transfered to datetime")
 
 
-def get_emails(send_date, mode='ON'):
+def get_emails(send_date, seatable, mode='ON'):
     """
     return: email list, [email1, email2...], email is without thread id
     """
-    imap = ImapMail(settings.EMAIL_SERVER, settings.EMAIL_USER, settings.EMAIL_PASSWORD, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
+    imap = ImapMail(settings.EMAIL_SERVER, settings.EMAIL_USER, settings.EMAIL_PASSWORD, seatable,
+                    ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
     imap.client()
     imap.login()
     try:
@@ -219,7 +234,7 @@ def update_email_thread_ids(seatable, email_table_name, send_date, email_list):
     """
     # get email rows in last 30 days and generate message-thread dict {`Message ID`: `Thread ID`}
     last_month_day = (str_2_datetime(send_date) - timedelta(days=30)).strftime('%Y-%m-%d')
-    email_rows = query_table_rows(seatable, email_table_name, 
+    email_rows = query_table_rows(seatable, email_table_name,
                                   fields='`Message ID`, `Thread ID`',
                                   conditions=f"Date>='{last_month_day}'")
     message2thread = {email['Message ID']: email['Thread ID'] for email in email_rows}
@@ -233,7 +248,7 @@ def update_email_thread_ids(seatable, email_table_name, send_date, email_list):
     if no_thread_reply_message_ids:
         step = 100
         for i in range(0, len(no_thread_reply_message_ids), step):
-            message_ids_str = ', '.join([f"'{message_id}'" for message_id in no_thread_reply_message_ids[i: i+step]])
+            message_ids_str = ', '.join([f"'{message_id}'" for message_id in no_thread_reply_message_ids[i: i + step]])
             conditions = f"`Message ID`in ({message_ids_str})"
             earlier_email_rows = query_table_rows(seatable, email_table_name,
                                                   fields='`Message ID`, `Thread ID`',
@@ -284,7 +299,7 @@ def fill_email_list_with_row_id(seatable, email_table_name, email_list):
     step = 100
     message_id_row_id_dict = {}  # {message_id: row._id}
     for i in range(0, len(email_list), step):
-        message_ids_str = ', '.join([f"'{email['Message ID']}'" for email in email_list[i: i+step]])
+        message_ids_str = ', '.join([f"'{email['Message ID']}'" for email in email_list[i: i + step]])
         conditions = f'`Message ID` in ({message_ids_str})'
         email_rows = query_table_rows(seatable, email_table_name,
                                       fields='`_id`, `Message ID`',
@@ -309,7 +324,7 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
     thread_id_row_id_dict = {}
     step = 100
     for i in range(0, len(to_be_updated_thread_ids), step):
-        thread_ids_str = ', '.join([f"'{thread_id}'" for thread_id in to_be_updated_thread_ids[i: i+step]])
+        thread_ids_str = ', '.join([f"'{thread_id}'" for thread_id in to_be_updated_thread_ids[i: i + step]])
         conditions = f"`Thread ID` in ({thread_ids_str})"
         thread_rows = query_table_rows(seatable, link_table_name,
                                        fields='`Thread ID`, `_id`',
@@ -337,20 +352,57 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
             seatable.add_link(link_id, link_table_name, email_table_name, row_id, email_dict[message_id]['_id'])
 
 
+def update_emails(seatable, email_table_name, email_list):
+    """
+    update email table
+    email_list: list of email
+    """
+    to_be_updated_attachments_dict = {email['Message ID']: email['Attachment'] for email in email_list if
+                                      email['Attachment']}
+    to_be_updated_message_ids = list(to_be_updated_attachments_dict.keys())
+
+    message_id_row_id_dict = {}
+    step = 100
+    for i in range(0, len(to_be_updated_message_ids), step):
+        message_ids_str = ', '.join([f"'{message_id}'" for message_id in to_be_updated_message_ids[i: i + step]])
+        conditions = f"`Message ID` in ({message_ids_str})"
+        email_rows = query_table_rows(seatable, email_table_name,
+                                      fields='`Message ID`, `_id`',
+                                      conditions=conditions,
+                                      all=False,
+                                      limit=step)
+        message_id_row_id_dict.update({row['Message ID']: row['_id'] for row in email_rows})
+
+    message_id_attachment_dict = {}
+    for email_message_id in to_be_updated_attachments_dict:
+        attachments = to_be_updated_attachments_dict[email_message_id]
+        attachment_list = []
+        for attachment_info_dict in attachments:
+            attachment_list.append(attachment_info_dict)
+        message_id_attachment_dict[email_message_id] = attachment_list
+
+    to_be_updated_attachment_rows = [{
+        'row_id': message_id_row_id_dict[key],
+        'row': {'Attachment': value}
+    } for key, value in message_id_attachment_dict.items()]
+    seatable.batch_update_rows(email_table_name, to_be_updated_attachment_rows)
+
+
 def sync(send_date, mode='ON'):
     try:
+        seatable = SeaTableAPI(settings.TEMPLATE_BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
+        seatable.auth()
         # get emails on send_date
-        email_list = sorted(get_emails(send_date, mode=mode), key=lambda x: str_2_datetime(x['Date']))
+        email_list = sorted(get_emails(send_date, seatable, mode=mode), key=lambda x: str_2_datetime(x['Date']))
         if not email_list:
             return
 
         logger.info(f'fetch {len(email_list)} emails')
 
-        seatable = SeaTableAPI(settings.TEMPLATE_BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
-        seatable.auth()
-
         # update thread id of emails
-        email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable, settings.EMAIL_TABLE_NAME, send_date, email_list)
+        email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable,
+                                                                                         settings.EMAIL_TABLE_NAME,
+                                                                                         send_date, email_list)
         logger.info(f'need to be inserted {len(email_list)} emails')
         logger.info(f'need to be inserted {len(new_thread_rows)} thread rows')
         if not email_list:
@@ -358,12 +410,15 @@ def sync(send_date, mode='ON'):
 
         # insert new emails
         seatable.batch_append_rows(settings.EMAIL_TABLE_NAME, email_list)
+        # update attachment
+        update_emails(seatable, settings.EMAIL_TABLE_NAME, email_list)
         # insert new thread rows
         if new_thread_rows:
             seatable.batch_append_rows(settings.LINK_TABLE_NAME, new_thread_rows)
 
         # update threads Last Updated and Emails
-        update_threads(seatable, settings.EMAIL_TABLE_NAME, settings.LINK_TABLE_NAME, email_list, to_be_updated_thread_dict)
+        update_threads(seatable, settings.EMAIL_TABLE_NAME, settings.LINK_TABLE_NAME, email_list,
+                       to_be_updated_thread_dict)
     except Exception as e:
         logger.exception(e)
         logger.error('sync and update link error: %s', e)
