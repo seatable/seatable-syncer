@@ -48,64 +48,87 @@ def sync_jobs_by_dtables_api():
     return {'dtable_sync_jobs': dtable_sync_jobs_dict}, 200
 
 
-@app.route('/api/v1/dtables/<dtable_uuid>/sync-jobs/', methods=['POST'])
+@app.route('/api/v1/dtables/<dtable_uuid>/sync-jobs/', methods=['POST', 'DELETE'])
 @cross_origin()
 def sync_jobs_api(dtable_uuid):
-    try:
-        data = json.loads(request.data)
-    except:
-        return {'error_msg': 'Bad request.'}, 400
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.data)
+        except:
+            return {'error_msg': 'Bad request.'}, 400
 
-    dtable_uuid = dtable_uuid.replace('-', '')
+        dtable_uuid = dtable_uuid.replace('-', '')
 
-    name = data.get('name', 'Untitled')
-    api_token = data.get('api_token')
-    trigger_detail = data.get('trigger_detail')
-    job_type = data.get('job_type')
-    detail = data.get('detail')
-    if not all([name, api_token, trigger_detail, detail, job_type]):
-        return {'error_msg': 'Bad request.'}, 400
+        name = data.get('name', 'Untitled')
+        api_token = data.get('api_token')
+        trigger_detail = data.get('trigger_detail')
+        job_type = data.get('job_type')
+        detail = data.get('detail')
+        if not all([name, api_token, trigger_detail, detail, job_type]):
+            return {'error_msg': 'Bad request.'}, 400
 
-    if not isinstance(trigger_detail, dict):
-        return {'error_msg': 'trigger_detail invalid.'}, 400
-    try:
-        CronTrigger(**trigger_detail)
-    except:
-        return {'error_msg': 'trigger_detail invalid.'}, 400
+        if not isinstance(trigger_detail, dict):
+            return {'error_msg': 'trigger_detail invalid.'}, 400
+        try:
+            CronTrigger(**trigger_detail)
+        except:
+            return {'error_msg': 'trigger_detail invalid.'}, 400
 
-    if not isinstance(detail, dict):
-        return {'error_msg': 'detail invalid.'}, 400
+        if not isinstance(detail, dict):
+            return {'error_msg': 'detail invalid.'}, 400
 
-    if job_type not in [JOB_TYPE_EMAIL_SYNC]:
-        return {'error_msg': 'job_type invalid.'}, 400
+        if job_type not in [JOB_TYPE_EMAIL_SYNC]:
+            return {'error_msg': 'job_type invalid.'}, 400
 
-    if job_type == JOB_TYPE_EMAIL_SYNC:
-        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
-        if error_msg:
-            return {'error_msg': error_msg}, 400
+        if job_type == JOB_TYPE_EMAIL_SYNC:
+            error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
+            if error_msg:
+                return {'error_msg': error_msg}, 400
 
-    job = SyncJobs(
-        name=name,
-        dtable_uuid=dtable_uuid,
-        api_token=api_token,
-        trigger_detail=json.dumps(trigger_detail),
-        job_type=job_type,
-        detail=json.dumps(detail)
-    )
-    try:
-        db.session.add(job)
-        db.session.commit()
-    except Exception as e:
-        logger.error('create sync job error: %s', e)
-        return {'error_msg': 'Internal Server Error.'}, 500
+        job = SyncJobs(
+            name=name,
+            dtable_uuid=dtable_uuid,
+            api_token=api_token,
+            trigger_detail=json.dumps(trigger_detail),
+            job_type=job_type,
+            detail=json.dumps(detail)
+        )
+        try:
+            db.session.add(job)
+            db.session.commit()
+        except Exception as e:
+            logger.error('create sync job error: %s', e)
+            return {'error_msg': 'Internal Server Error.'}, 500
 
-    try:
-        scheduler_jobs_manager.add_job(job)
-    except Exception as e:
-        logger.exception(e)
-        logger.error('add job: %s to scheduler error: %s', job, e)
+        try:
+            scheduler_jobs_manager.add_job(job)
+        except Exception as e:
+            logger.exception(e)
+            logger.error('add job: %s to scheduler error: %s', job, e)
 
-    return {'sync_job': job.to_dict()}, 200
+        return {'sync_job': job.to_dict()}, 200
+    else:
+        dtable_uuid = dtable_uuid.replace('-', '')
+        try:
+            jobs = SyncJobs.query.filter(SyncJobs.dtable_uuid == dtable_uuid).all()
+        except Exception as e:
+            logger.error('query dtable: %s jobs error: %s', dtable_uuid, e)
+            return {'error_msg': 'Internal Server Error.'}, 500
+
+        for job in jobs:
+            try:
+                scheduler_jobs_manager.remove_job(job.job_id)
+            except Exception as e:
+                logger.error('remove job: %s error: %s', job, e)
+
+        try:
+            [db.session.delete(job) for job in jobs]
+            db.session.commit()
+        except Exception as e:
+            logger.error('remove dtable: %s db jobs error: %s', dtable_uuid, e)
+            return {'error_msg': 'Internal Server Error.'}, 500
+
+        return {'success': True}, 200
 
 
 @app.route('/api/v1/dtables/<dtable_uuid>/sync-jobs/<job_id>/', methods=['PUT', 'DELETE'])
