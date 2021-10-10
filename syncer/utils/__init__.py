@@ -2,6 +2,7 @@ import json
 import os
 import ssl
 import logging
+from datetime import datetime
 
 import pytz
 from seatable_api import SeaTableAPI
@@ -9,16 +10,17 @@ from tzlocal import get_localzone
 
 from config import basedir
 from email_sync.email_syncer import ImapMail
+from utils.constants import JOB_TYPE_EMAIL_SYNC
 
 logger = logging.getLogger(__name__)
 
 
-table_file = os.path.join(basedir, 'email_sync', 'tables.json')
+email_sync_tables_file = os.path.join(basedir, 'email_sync', 'tables.json')
 
-if not os.path.isfile(table_file):
-    raise Exception(f'{table_file} not found')
-with open(table_file, 'r') as f:
-    required_tables_dict = json.load(f)
+if not os.path.isfile(email_sync_tables_file):
+    raise Exception(f'{email_sync_tables_file} not found')
+with open(email_sync_tables_file, 'r') as f:
+    email_sync_tables_dict = json.load(f)
 
 
 def _check_tables(existed_tables, target_table_name, required_columns):
@@ -44,7 +46,7 @@ def _check_tables(existed_tables, target_table_name, required_columns):
     return False, False, 'table %s not found' % target_table_name
 
 
-def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid=None, email_table_name=None, link_table_name=None):
+def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid=None, job_type=None, detail=None):
     """
     check api token and names
     return invalid message or None
@@ -60,19 +62,34 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
     if dtable_uuid and seatable.dtable_uuid.replace('-', '') != dtable_uuid.replace('-', ''):
         return 'api_token: %s is not for dtable_uuid: %s' % (api_token, dtable_uuid)
 
-    # check email-sync tables and columns in them
-    if email_table_name or link_table_name:
+    if job_type == JOB_TYPE_EMAIL_SYNC and detail:
+        email_table_name = detail.get('email_table_name')
+        link_table_name = detail.get('link_table_name')
+        imap_server = detail.get('imap_server')
+        email_user = detail.get('email_user')
+        email_password = detail.get('email_password')
+        if not email_table_name:
+            return 'email_table_name invalid.'
+        if not link_table_name:
+            return 'link_table_name invalid.'
+        if email_table_name == link_table_name:
+            return 'email_table_name or link_table_name invalid.'
+        if not all([imap_server, email_user, email_password]):
+            return 'imap_server, email_user or email_password invalid.'
+
+        # check email-sync tables and columns in them
         metadata = seatable.get_metadata()
         existed_tables = [table for table in metadata.get('tables', [])]
-        for table in existed_tables:
-            if email_table_name and table.get('name') == email_table_name:
-                _, _, error_msg = _check_tables(existed_tables, email_table_name, required_tables_dict['email_table'])
-                if error_msg:
-                    return error_msg
-            if link_table_name and table.get('name') == link_table_name:
-                _, _, error_msg = _check_tables(existed_tables, link_table_name, required_tables_dict['link_table'])
-                if error_msg:
-                    return error_msg
+        _, _, error_msg = _check_tables(existed_tables, email_table_name, email_sync_tables_dict['email_table'])
+        if error_msg:
+            return error_msg
+        _, _, error_msg = _check_tables(existed_tables, link_table_name, email_sync_tables_dict['link_table'])
+        if error_msg:
+            return error_msg
+
+        error_msg = check_imap_account(imap_server, email_user, email_password)
+        if error_msg:
+            return error_msg
 
     return None
 

@@ -10,68 +10,37 @@ from flask import current_app as app
 
 from app import db, app
 from config import Config
-from models.email_sync_models import EmailSyncJobs
+from models.sync_models import SyncJobs
 from scheduler.job_funcs import email_sync_job_func
-from utils.constants import EMAIL_SYNC_JOB_PREFIX
+from utils.constants import JOB_TYPE_EMAIL_SYNC, SYNC_JOB_PREFIX
 from utils.exceptions import SchedulerJobInvalidException
 
 logger = logging.getLogger(__name__)
-
-
-class ScheduelrJobsManager:
+class SchedulerJobsManager:
     """
     Encapsulated scheduler for add/update/remove jobs
     """
 
     def __init__(self):
-        # self.email_sync_scheduler = BackgroundScheduler()
-        self.email_sync_scheduler = GeventScheduler()
-        self.email_sync_scheduler.add_listener(self.update_last_trigger_time, mask=(EVENT_JOB_EXECUTED | EVENT_JOB_ERROR))
-        self.email_sync_scheduler.add_listener(self.invalidate_job, mask=EVENT_JOB_ERROR)
+        self.scheduler = GeventScheduler()
+        self.scheduler.add_listener(self.update_last_trigger_time, mask=(EVENT_JOB_EXECUTED | EVENT_JOB_ERROR))
+        self.scheduler.add_listener(self.invalidate_job, mask=EVENT_JOB_ERROR)
 
-    def get_jobs(self):
-        jobs = {
-            'email_sync_jobs': [],
-            'email_sync_state': self.email_sync_scheduler.state
-        }
-        email_sync_jobs = self.email_sync_scheduler.get_jobs()
-        for job in email_sync_jobs:
-            jobs['email_sync_jobs'].append({
-                'id': job.id,
-                'args': job.args,
-                'next_run_time': str(job.next_run_time),
-                'trigger': str(job.trigger)
-            })
-
-        return jobs
-
-    def add_email_sync_job(self, db_job):
-        logger.info('add email job: %s', db_job)
-        trigger = CronTrigger(**json.loads(db_job.schedule_detail))
-        return self.email_sync_scheduler.add_job(
-            email_sync_job_func,
-            trigger=trigger,
-            args=(
-                db_job.api_token,
-                Config.DTABLE_WEB_SERVICE_URL,
-                db_job.email_table_name,
-                db_job.link_table_name,
-                db_job.imap_server,
-                db_job.email_user,
-                db_job.email_password
-            ),
-            id=db_job.job_id
-        )
-
-    def update_email_sync_job(self, db_job):
-        self.remove_job(db_job.job_id)
-        self.add_email_sync_job(db_job)
-
-    def remove_job(self, job_id, prefix=None):
-        job_id = job_id if not prefix else f'{prefix}{job_id}'
-        if self.email_sync_scheduler.get_job(job_id):
-            self.email_sync_scheduler.remove_job(job_id)
-
+    def update_last_trigger_time(self, event):
+        """
+        a callback for scheduler job-executed / job-error events to udpate last_trigger_time
+        """
+        with app.app_context():
+            job_id = event.job_id
+            scheduled_run_time = event.scheduled_run_time  # an instantance of datetime
+            db_job_id = job_id[len(SYNC_JOB_PREFIX):]
+            try:
+                SyncJobs.query.filter(SyncJobs.id == db_job_id).update({
+                    'last_trigger_time': scheduled_run_time.astimezone(pytz.timezone('UTC'))
+                })
+                db.session.commit()
+            except Exception as e:
+                logger.error('update job: %s last_trigger_time: %s', job_id, scheduled_run_time)
 
     def invalidate_job(self, event):
         job_id = event.job_id
@@ -79,44 +48,48 @@ class ScheduelrJobsManager:
         if not isinstance(event.exception, SchedulerJobInvalidException):
             logger.error('job: %s execute error: %s run time at: %s', job_id, event.exception, scheduled_run_time)
             return
+        db_job_id = job_id[len(SYNC_JOB_PREFIX):]
         with app.app_context():
             try:
-                if job_id.startswith(EMAIL_SYNC_JOB_PREFIX):
-                    db_job_id = job_id[len(EMAIL_SYNC_JOB_PREFIX):]
-                    EmailSyncJobs.query.filter(EmailSyncJobs.id == db_job_id).update({'is_valid': False})
-                    db.session.commit()
+                SyncJobs.query.filter(SyncJobs.id == db_job_id).update({'is_valid': False})
+                db.session.commit()
             except Exception as e:
-                logger.error('update job: %s is_valid error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)
+                logger.error('invalidate job: %s error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)
 
-    def update_last_trigger_time(self, event):
-        """
-        a callback for email_sync_scheduler job-executed event
-        """
-        with app.app_context():
-            job_id = event.job_id
-            scheduled_run_time = event.scheduled_run_time
-            try:
-                if job_id.startswith(EMAIL_SYNC_JOB_PREFIX):
-                    db_job_id = job_id[len(EMAIL_SYNC_JOB_PREFIX):]
-                    EmailSyncJobs.query.filter(EmailSyncJobs.id == db_job_id).update({
-                        'last_trigger_time': scheduled_run_time.astimezone(pytz.timezone('UTC'))
-                    })
-                    db.session.commit()
-            except Exception as e:
-                logger.error('update job: %s last_trigger_time error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)
+    def add_job(self, db_job):
+        logger.info('add job: %s to scheduler...', db_job)
+        trigger = CronTrigger(**json.loads(db_job.trigger_detail))
+        if db_job.job_type == JOB_TYPE_EMAIL_SYNC:
+            detail = json.loads(db_job.detail)
+            self.scheduler.add_job(
+                email_sync_job_func,
+                trigger=trigger,
+                args=(
+                    db_job.api_token,
+                    Config.DTABLE_WEB_SERVICE_URL,
+                    detail
+                ),
+                id=db_job.job_id
+            )
 
-    def _load_email_sync_jobs(self):
-        with app.app_context():
-            db_jobs = EmailSyncJobs.query.filter(EmailSyncJobs.is_valid == True)
-            for db_job in db_jobs:
-                job = self.add_email_sync_job(db_job)
-                logger.info('job: %s loaded', job)
+    def remove_job(self, job_id):
+        self.scheduler.remove_job(job_id)
+
+    def update_job(self, db_job):
+        self.remove_job(db_job.job_id)
+        self.add_job(db_job)
 
     def load_jobs(self):
-        self._load_email_sync_jobs()
+        with app.app_context():
+            db_jobs = SyncJobs.query.filter(SyncJobs.is_valid == True).all()
+            for db_job in db_jobs:
+                try:
+                    self.add_job(db_job)
+                except Exception as e:
+                    logger.error('add job: %s error: %s', db_job, e)
 
     def start(self):
-        self.email_sync_scheduler.start()
+        self.scheduler.start()
 
 
-scheduler_jobs_manager = ScheduelrJobsManager()
+scheduler_jobs_manager = SchedulerJobsManager()
