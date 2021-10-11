@@ -1,6 +1,6 @@
 FROM python:3.7-alpine
 
-ENV SYNC_VERSION=2.5.0
+ENV SYNC_VERSION=
 
 VOLUME [ "/shared" ]
 WORKDIR /data
