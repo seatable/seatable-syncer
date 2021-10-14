@@ -9,7 +9,6 @@ from uuid import uuid4
 from seatable_api import SeaTableAPI
 from seatable_api.constants import ColumnTypes
 
-import settings
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
@@ -178,6 +177,8 @@ def query_table_rows(seatable, table_name, fields='*', conditions='', all=True, 
     if all:
         result = fixed_sql_query(seatable, f"select count(*) from {table_name} {where_conditions}")[0]
         limit = result['COUNT(*)']
+        if limit == 0:
+            return []
     else:
         limit = 100 if not limit else limit
     return fixed_sql_query(seatable, f"select {fields} from {table_name} {where_conditions} limit {limit}")
@@ -195,11 +196,11 @@ def str_2_datetime(s: str):
     raise Exception(f"date {s} can't be transfered to datetime")
 
 
-def get_emails(send_date, mode='ON'):
+def get_emails(send_date, email_server, email_user, email_password, mode='ON'):
     """
     return: email list, [email1, email2...], email is without thread id
     """
-    imap = ImapMail(settings.EMAIL_SERVER, settings.EMAIL_USER, settings.EMAIL_PASSWORD, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
+    imap = ImapMail(email_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
     imap.client()
     imap.login()
     try:
@@ -337,33 +338,44 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
             seatable.add_link(link_id, link_table_name, email_table_name, row_id, email_dict[message_id]['_id'])
 
 
-def sync(send_date, mode='ON'):
+def sync(send_date,
+         api_token,
+         dtable_web_service_url,
+         email_table_name,
+         link_table_name,
+         email_server,
+         email_user,
+         email_password,
+         mode='ON'):
     try:
         # get emails on send_date
-        email_list = sorted(get_emails(send_date, mode=mode), key=lambda x: str_2_datetime(x['Date']))
+        email_list = sorted(get_emails(send_date, email_server, email_user, email_password, mode=mode), key=lambda x: str_2_datetime(x['Date']))
         if not email_list:
             return
 
         logger.info(f'fetch {len(email_list)} emails')
 
-        seatable = SeaTableAPI(settings.TEMPLATE_BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
+        seatable = SeaTableAPI(api_token, dtable_web_service_url)
         seatable.auth()
 
         # update thread id of emails
-        email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable, settings.EMAIL_TABLE_NAME, send_date, email_list)
+        email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable, email_table_name, send_date, email_list)
         logger.info(f'need to be inserted {len(email_list)} emails')
         logger.info(f'need to be inserted {len(new_thread_rows)} thread rows')
         if not email_list:
             return
 
         # insert new emails
-        seatable.batch_append_rows(settings.EMAIL_TABLE_NAME, email_list)
+        seatable.batch_append_rows(email_table_name, email_list)
         # insert new thread rows
         if new_thread_rows:
-            seatable.batch_append_rows(settings.LINK_TABLE_NAME, new_thread_rows)
+            seatable.batch_append_rows(link_table_name, new_thread_rows)
+
+        # wait several seconds for dtable-db
+        time.sleep(3)
 
         # update threads Last Updated and Emails
-        update_threads(seatable, settings.EMAIL_TABLE_NAME, settings.LINK_TABLE_NAME, email_list, to_be_updated_thread_dict)
+        update_threads(seatable, email_table_name, link_table_name, email_list, to_be_updated_thread_dict)
     except Exception as e:
         logger.exception(e)
         logger.error('sync and update link error: %s', e)
@@ -380,14 +392,30 @@ def main():
         exit(-1)
     mode = mode.upper()
     if send_date:
-        sync(send_date, mode=mode)
+        sync(send_date,
+             api_token=settings.TEMPLATE_BASE_API_TOKEN,
+             dtable_web_service_url=settings.DTABLE_WEB_SERVICE_URL,
+             email_table_name=settings.EMAIL_TABLE_NAME,
+             link_table_name=settings.LINK_TABLE_NAME,
+             email_server=settings.EMAIL_SERVER,
+             email_user=settings.EMAIL_USER,
+             email_password=settings.EMAIL_PASSWORD,
+             mode=mode)
         return
 
     try:
         while True:
             try:
                 logger.info('start syncing: %s', datetime.now())
-                sync((datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'), mode='SINCE')
+                sync((datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'),
+                     api_token=settings.TEMPLATE_BASE_API_TOKEN,
+                     dtable_web_service_url=settings.DTABLE_WEB_SERVICE_URL,
+                     email_table_name=settings.EMAIL_TABLE_NAME,
+                     link_table_name=settings.LINK_TABLE_NAME,
+                     email_server=settings.EMAIL_SERVER,
+                     email_user=settings.EMAIL_USER,
+                     email_password=settings.EMAIL_PASSWORD,
+                     mode='SINCE')
                 time.sleep(interval)
             except Exception as e:
                 logger.error('cron sync error: %s', e)
@@ -397,6 +425,7 @@ def main():
 
 
 if __name__ == "__main__":
+    import settings
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', required=False, type=str, help='sync date')
     parser.add_argument('--mode', required=False, type=str, help='since or on, default on')
