@@ -11,8 +11,10 @@ from settings import server_url, api_token, table_name, filebeat_key, \
     redis_host, redis_port, redis_db, redis_password
 
 
-DATETIME_MATCH_1 = r'(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2}:\d{1,2})'
-DATETIME_MATCH_2 = r'(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2})'
+DATETIME_MATCH_1 = r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2}:\d{1,2})'
+DATETIME_MATCH_2 = r'^(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2})'
+DATETIME_MATCH_3 = r'^\[(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2}:\d{1,2})'
+DATETIME_MATCH_4 = r'^\[(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2})'
 
 
 class LogSyncer(object):
@@ -31,12 +33,14 @@ class LogSyncer(object):
     def send(self, log):
         log = json.loads(log)
         msg = log['message']
-        if re.search(DATETIME_MATCH_1, msg):
-            log_time = re.search(
-                DATETIME_MATCH_1, msg).group(1)
-        elif re.search(DATETIME_MATCH_2, msg):
-            log_time = re.search(
-                DATETIME_MATCH_2, msg).group(1).replace('T', ' ')
+        if re.match(DATETIME_MATCH_1, msg):
+            log_time = re.match(DATETIME_MATCH_1, msg).group(1)
+        elif re.match(DATETIME_MATCH_2, msg):
+            log_time = re.match(DATETIME_MATCH_2, msg).group(1).replace('T', ' ')
+        elif re.match(DATETIME_MATCH_3, msg):
+            log_time = re.match(DATETIME_MATCH_3, msg).group(1)
+        elif re.match(DATETIME_MATCH_4, msg):
+            log_time = re.match(DATETIME_MATCH_4, msg).group(1).replace('T', ' ')
         else:
             log_time = self.now()
         msg = '```\n' + msg + '\n```'
