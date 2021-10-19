@@ -6,6 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from flask import current_app as app, request
 from flask_cors import cross_origin
 from seatable_api import SeaTableAPI
+import seatable_api
 from seatable_api.constants import ColumnTypes
 
 from app import db
@@ -13,7 +14,7 @@ from config import Config
 from models.sync_models import SyncJobs
 from scheduler import scheduler_jobs_manager
 from email_sync.email_syncer import sync as sync_emails
-from utils import check_api_token_and_resources, email_sync_tables_dict
+from utils import check_api_token_and_resources, email_sync_tables_dict, create_table, check_table_columns
 from utils.constants import JOB_TYPE_EMAIL_SYNC
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ def sync_jobs_api(dtable_uuid):
         trigger_detail = data.get('trigger_detail')
         job_type = data.get('job_type')
         detail = data.get('detail')
+        lang = data.get('lang')
         if not all([name, api_token, trigger_detail, detail, job_type]):
             return {'error_msg': 'Bad request.'}, 400
 
@@ -80,10 +82,118 @@ def sync_jobs_api(dtable_uuid):
         if job_type not in [JOB_TYPE_EMAIL_SYNC]:
             return {'error_msg': 'job_type invalid.'}, 400
 
+        try:
+            seatable = SeaTableAPI(api_token, Config.DTABLE_WEB_SERVICE_URL)
+            seatable.auth()
+        except Exception as e:
+            logger.error('seatable auth error: %s', e)
+            return {'error_msg': 'api_token invalid.'}, 400
+
         if job_type == JOB_TYPE_EMAIL_SYNC:
-            error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
-            if error_msg:
-                return {'error_msg': error_msg}, 400
+            email_table_id = detail.get('email_table_id')
+            link_table_id = detail.get('link_table_id')
+
+            # There are links between tables related to mail synchronization, and there may be problems such as the required columns already exist, 
+            # so, many conditions need to be checked before generating synchronization tasks, and the process is relatively complex
+            if not email_table_id and not link_table_id:
+                # create email table
+                email_table = create_table(seatable, 'Emails', lang=lang)
+                # create link table
+                link_table = create_table(seatable, 'Threads', lang=lang)
+                # create link column between both tables
+                seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+                    'table': link_table.get('name'),
+                    'other_table': email_table.get('name')
+                })
+                # create email table columns
+                email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+                # create link table columns
+                link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+            elif email_table_id and not link_table_id:
+                # check email table
+                email_table, error_msg = check_table_columns(seatable, email_table_id)
+                if error_msg:
+                    return {'error_msg': error_msg}, 404
+                # create link table
+                link_table = create_table(seatable, 'Threads', lang=lang)
+                # create link column between both tables
+                seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+                    'table': link_table.get('name'),
+                    'other_table': email_table.get('name')
+                })
+                # create email table columns
+                email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+                # create link table columns
+                link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+            elif not email_table_id and link_table_id:
+                # check link table
+                link_table, error_msg = check_table_columns(seatable, link_table_id)
+                if error_msg:
+                    return {'error_msg': error_msg}, 404
+                # create email table
+                email_table = create_table(seatable_api, 'Emails', lang=lang)
+                # create link column between both tables
+                for col in link_table.get('columns'):
+                    if col.get('name') == 'Emails':
+                        return {'error_msg': 'Column `Emails` exists.'}, 400
+                seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+                    'table': link_table.get('name'),
+                    'other_table': email_table.get('name')
+                })
+                # create email table columns
+                email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+                # create link table columns
+                link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+            else:
+                # check email table
+                email_table, error_msg = check_table_columns(seatable, email_table_id)
+                # check link table
+                link_table, error_msg = check_table_columns(seatable, link_table_id)
+                # create link column between both tables
+                link_column_exists = False
+                for col in link_table.get('columns'):
+                    if col.get('name') != 'Emails':
+                        continue
+                    if col.get('type') != ColumnTypes.LINK.value:
+                        return {'error_msg': 'Column `Emails` exists.'}, 400
+                    if col['data'].get('other_table_id') != email_table.get('_id'):
+                        return {'error_msg': 'Column `Emails` exists and its link column is not for email table.'}, 400
+                    link_column_exists = True
+                    break
+                if not link_column_exists:
+                    seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+                        'table': link_table.get('name'),
+                        'other_table': email_table.get('name')
+                    })
+                # create email table columns
+                email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+                # create link table columns
+                link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+
+            detail.update({
+                'email_table_id': email_table.get('_id'),
+                'link_table_id': link_table.get('_id')
+            })
+
+        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
+        if error_msg:
+            return {'error_msg': error_msg}, 400
 
         job = SyncJobs(
             name=name,
@@ -146,9 +256,15 @@ def sync_job_api(dtable_uuid, job_id):
         api_token = data.get('api_token')
         trigger_detail = data.get('trigger_detail')
         detail = data.get('detail')
+        lang = data.get('lang')
 
-        if trigger_detail and not isinstance(trigger_detail, dict):
-            return {'error_msg': 'trigger_detail invalid.'}, 400
+        if trigger_detail:
+            if not isinstance(trigger_detail, dict):
+                return {'error_msg': 'trigger_detail invalid.'}, 400
+            try:
+                CronTrigger(**trigger_detail)
+            except:
+                return {'error_msg': 'trigger_detail invalid.'}, 400
 
         if detail and not isinstance(detail, dict):
             return {'error_msg': 'detail invalid.'}, 400
@@ -163,10 +279,61 @@ def sync_job_api(dtable_uuid, job_id):
             return {'error_msg': 'Job not found.'}, 404
 
         if api_token or detail:
+            # define api-token to auth
             check_api_token = api_token if api_token else job.api_token
+            try:
+                seatable = SeaTableAPI(check_api_token, Config.DTABLE_WEB_SERVICE_URL)
+                seatable.auth()
+            except Exception as e:
+                return {'error_msg': 'api_token invalid.'}, 400
             if detail:
                 check_detail = json.loads(job.detail)
-                check_detail.update(detail)
+                if job.job_type == JOB_TYPE_EMAIL_SYNC:
+                    if 'email_table_id' in detail or 'link_table_id' in detail:
+                        # check/init email/link table
+                        email_table_id, email_table_name, error_msg = check_and_init_table(detail.get('email_table_id'), email_sync_tables_dict['email_table'], table_name='Emails', lang=lang, api_token=api_token)
+                        if error_msg:
+                            return {'error_msg': error_msg}, 400
+                        link_table_id, link_table_name, error_msg = check_and_init_table(detail.get('link_table_id'), email_sync_tables_dict['link_table'], table_name='Threads', lang=lang, api_token=api_token)
+                        if error_msg:
+                            return {'error_msg': error_msg}, 400
+                        # check link column between email table and link table
+                        # the link columns hava specific names `Emails` in link table and `Threads` in email table
+                        metadata = seatable.get_metadata()
+                        link_table, email_table = None, None
+                        for table in metadata.get('tables'):
+                            if table.get('_id') == link_table_id:
+                                link_table = table
+                            if table.get('_id') == email_table_id:
+                                email_table = table
+                        existed_link_column = None
+                        for col in link_table.get('columns'):
+                            if col.get('name') == 'Emails' and col.get('type') == ColumnTypes.LINK.value:
+                                data = col.get('data')
+                                if data.get('other_table_id') == email_table_id:
+                                    existed_link_column = col
+                                    break
+                        # not existed create it
+                        if not existed_link_column:
+                            existed_link_column = seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+                                'table': link_table_name,
+                                'other_table': email_table_name
+                            })
+                        # rename email table link column to Threads
+                        email_thread_link_column = None
+                        email_naming_Threads_column = None
+                        for col in email_table.get('columns'):
+                            if col.get('type') == ColumnTypes.LINK.value and col.get('data').get('link_id') == existed_link_column.get('data').get('link_id'):
+                                email_thread_link_column = col
+                            if col.get('name') == 'Threads':
+                                email_naming_Threads_column = col
+                        if email_thread_link_column and not email_naming_Threads_column:
+                            seatable.rename_column(email_table_name, existed_link_column.get('name'), 'Threads')
+
+                        check_detail.update({
+                            'email_table_id': email_table_id,
+                            'link_table_id': link_table_id
+                        })
             else:
                 check_detail = None
             error_msg = check_api_token_and_resources(check_api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job.job_type, detail=check_detail)
@@ -331,12 +498,22 @@ def run_sync_job_api(job_id):
         email_password = detail['email_password']
         api_token = db_job.api_token
         dtable_web_service_url = Config.DTABLE_WEB_SERVICE_URL
-        email_table_name = detail['email_table_name']
-        link_table_name = detail['link_table_name']
+        email_table_id = detail['email_table_id']
+        link_table_id = detail['link_table_id']
 
         if not all([imap_server, email_user, email_password, api_token, dtable_web_service_url,
-                    email_table_name, link_table_name]):
+                    email_table_id, link_table_id]):
             return {'error_msg': 'Bad request.'}, 400
+
+        seatable = SeaTableAPI(api_token, dtable_web_service_url)
+        seatable.auth()
+
+        email_table_name, link_table_name = None, None
+        for table in seatable.get_metadata().get('tables', []):
+            if email_table_id == table.get('_id'):
+                email_table_name = table.get('name')
+            if link_table_id == table.get('_id'):
+                link_table_name = table.get('name')
 
         try:
             sync_emails(send_date_str,
