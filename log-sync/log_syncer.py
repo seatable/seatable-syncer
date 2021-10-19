@@ -30,6 +30,15 @@ class LogSyncer(object):
     def count(self):
         return self.r.llen(filebeat_key)
 
+    def base_auth(self):
+        while True:
+            try:
+                self.base.auth()
+                break
+            except Exception as e:
+                print(self.now(), type(e), e)
+                time.sleep(30)
+
     def send(self, log):
         log = json.loads(log)
         msg = log['message']
@@ -45,7 +54,7 @@ class LogSyncer(object):
             log_time = self.now()
         msg = '```\n' + msg + '\n```'
         service = '-'.join(log['tags'])
-        print(log_time, service, log)
+        print(self.now(), service, log_time)
 
         row_data = {
             'Service': service,
@@ -67,10 +76,16 @@ class LogSyncer(object):
 
                 self.send(log)
                 time.sleep(0.5)
+            except ConnectionError as e:
+                print(self.now(), type(e), e)
+                time.sleep(30)
+                self.base_auth()
+            except redis.exceptions.ConnectionError as e:
+                print(self.now(), type(e), e)
+                time.sleep(30)
             except Exception as e:
-                print(self.now(), e)
-                time.sleep(10)
-                self.base.auth()
+                print(self.now(), type(e), e)
+                time.sleep(30)
 
 
 if __name__ == '__main__':
