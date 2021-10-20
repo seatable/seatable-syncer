@@ -136,14 +136,15 @@ def sync_jobs_api(dtable_uuid):
             elif not email_table_id and link_table_id:
                 # check link table
                 link_table, error_msg = check_table_columns(seatable, link_table_id)
-                if error_msg:
-                    return {'error_msg': error_msg}, 404
-                # create email table
-                email_table = create_table(seatable_api, 'Emails', lang=lang)
-                # create link column between both tables
+                # check Emails column exists or not before create email table
                 for col in link_table.get('columns'):
                     if col.get('name') == 'Emails':
                         return {'error_msg': 'Column `Emails` exists.'}, 400
+                if error_msg:
+                    return {'error_msg': error_msg}, 404
+                # create email table
+                email_table = create_table(seatable, 'Emails', lang=lang)
+                # create link column between both tables
                 seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
                     'table': link_table.get('name'),
                     'other_table': email_table.get('name')

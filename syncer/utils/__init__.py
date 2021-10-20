@@ -26,6 +26,8 @@ with open(email_sync_tables_file, 'r') as f:
 
 
 def get_non_duplicated_str(existed_strs, target_str):
+    if not existed_strs:
+        return target_str
     nos = []
     for s in existed_strs:
         re_target = r'%s\d+' % (re.escape(target_str),)
@@ -102,8 +104,9 @@ def check_table_columns(seatable: SeaTableAPI, table_id, required_columns=None, 
     # create columns
     for column in columns_to_be_created:
         column_type = column.get('type')
-        column_name = column.get('name')
+        column_name = column.get('column_name')
         column_data = column.get('data')
+        print('column_type, column_name, column_data: ', column_type, column_name, column_data)
         seatable.insert_column(target_table.get('name'), column_name, ColumnTypes(column_type), column_data=column_data)
 
     return target_table, None
