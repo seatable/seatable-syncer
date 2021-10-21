@@ -3,7 +3,6 @@ import os
 import re
 import ssl
 import logging
-from datetime import datetime
 
 import pytz
 from seatable_api import SeaTableAPI
@@ -230,6 +229,8 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
     elif not email_table_id and link_table_id:
         # check link table
         link_table, error_msg = check_table_columns(seatable, link_table_id)
+        if error_msg:
+            return None, None, {'error_msg': error_msg}, 404
         # check Emails column exists or not before create email table
         for col in link_table.get('columns'):
             if col.get('name') == 'Emails':
@@ -257,8 +258,12 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
     else:
         # check email table
         email_table, error_msg = check_table_columns(seatable, email_table_id)
+        if error_msg:
+            return None, None, {'error_msg': error_msg}, 404
         # check link table
         link_table, error_msg = check_table_columns(seatable, link_table_id)
+        if error_msg:
+            return None, None, {'error_msg': error_msg}, 404
         # create link column between both tables
         link_column_exists = False
         for col in link_table.get('columns'):
