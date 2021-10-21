@@ -6,7 +6,6 @@ from apscheduler.triggers.cron import CronTrigger
 from flask import current_app as app, request
 from flask_cors import cross_origin
 from seatable_api import SeaTableAPI
-import seatable_api
 from seatable_api.constants import ColumnTypes
 
 from app import db
