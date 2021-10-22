@@ -384,8 +384,12 @@ def run_sync_job_api(job_id):
                     email_table_id, link_table_id]):
             return {'error_msg': 'Bad request.'}, 400
 
-        seatable = SeaTableAPI(api_token, dtable_web_service_url)
-        seatable.auth()
+        try:
+            seatable = SeaTableAPI(api_token, dtable_web_service_url)
+            seatable.auth()
+        except Exception as e:
+            logger.error('job: %s auth error: %s' % (db_job.id, e))
+            return {'error_msg': 'Internal Server Error.'}, 500
 
         email_table_name, link_table_name = None, None
         for table in seatable.get_metadata().get('tables', []):

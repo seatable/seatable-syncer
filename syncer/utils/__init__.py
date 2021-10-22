@@ -129,17 +129,17 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
 
     Conditions:
         1. NOT email_table and NOT link_table
-            1) create email_table and link_table and the link column between them
-            2) create required columns that doesn't exist in tables
+            1) create email_table and link_table and create required columns that doesn't exist in tables
+            2) create the link column between them
 
         2. email_table and NOT link_table
-            1) check email_table and create link_table and the link column between them
-            2) create required columns that doesn't exist in tables
+            1) check email_table and create link_table
+            2) create required columns that doesn't exist in tables and the link column between them
 
         3. NOT email_table and link_table
             1) check link_table and check whether Column `Emails` exists or not
-            2) create email_table and the link column between them
-            3) create required columns that doesn't exist in tables
+            2) create email_table
+            3) create required columns that doesn't exist in tables and the link column between them
 
         4. email_table and link_table
             1) check email_table and link_table
@@ -187,14 +187,6 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         email_table = create_table(seatable, 'Emails', lang=lang)
         # create link table
         link_table = create_table(seatable, 'Threads', lang=lang)
-        # create link column between both tables
-        seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
-            'table': link_table.get('name'),
-            'other_table': email_table.get('name'),
-            'display_column_name': email_table_link_display_column
-        })
-        # reset link column in email_table
-        email_table = reset_email_table_link_column(seatable, email_table, link_table)
         # create email table columns
         email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
         if error_msg:
@@ -203,6 +195,14 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
+        # create link column between both tables
+        seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+            'table': link_table.get('name'),
+            'other_table': email_table.get('name'),
+            'display_column_name': email_table_link_display_column
+        })
+        # reset link column in email_table
+        email_table = reset_email_table_link_column(seatable, email_table, link_table)
     elif email_table_id and not link_table_id:
         # check email table
         email_table, error_msg = check_table_columns(seatable, email_table_id)
@@ -210,14 +210,6 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
             return None, None, {'error_msg': error_msg}, 404
         # create link table
         link_table = create_table(seatable, 'Threads', lang=lang)
-        # create link column between both tables
-        seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
-            'table': link_table.get('name'),
-            'other_table': email_table.get('name'),
-            'display_column_name': email_table_link_display_column
-        })
-        # reset link column in email_table
-        email_table = reset_email_table_link_column(seatable, email_table, link_table)
         # create email table columns
         email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
         if error_msg:
@@ -226,6 +218,14 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
+        # create link column between both tables
+        seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+            'table': link_table.get('name'),
+            'other_table': email_table.get('name'),
+            'display_column_name': email_table_link_display_column
+        })
+        # reset link column in email_table
+        email_table = reset_email_table_link_column(seatable, email_table, link_table)
     elif not email_table_id and link_table_id:
         # check link table
         link_table, error_msg = check_table_columns(seatable, link_table_id)
@@ -239,14 +239,6 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
             return None, None, {'error_msg': error_msg}, 404
         # create email table
         email_table = create_table(seatable, 'Emails', lang=lang)
-        # create link column between both tables
-        seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
-            'table': link_table.get('name'),
-            'other_table': email_table.get('name'),
-            'display_column_name': email_table_link_display_column
-        })
-        # reset link column in email_table
-        email_table = reset_email_table_link_column(seatable, email_table, link_table)
         # create email table columns
         email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
         if error_msg:
@@ -255,6 +247,14 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
+        # create link column between both tables
+        seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+            'table': link_table.get('name'),
+            'other_table': email_table.get('name'),
+            'display_column_name': email_table_link_display_column
+        })
+        # reset link column in email_table
+        email_table = reset_email_table_link_column(seatable, email_table, link_table)
     else:
         # check email table
         email_table, error_msg = check_table_columns(seatable, email_table_id)
@@ -275,14 +275,6 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
                 return None, None, {'error_msg': 'Column `Emails` exists and its link column is not for email table.'}, 400
             link_column_exists = True
             break
-        if not link_column_exists:
-            seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
-                'table': link_table.get('name'),
-                'other_table': email_table.get('name'),
-                'display_column_name': email_table_link_display_column
-            })
-        # reset link column in email_table
-        email_table = reset_email_table_link_column(seatable, email_table, link_table)
         # create email table columns
         email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
         if error_msg:
@@ -291,6 +283,14 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
+        if not link_column_exists:
+            seatable.insert_column(link_table.get('name'), 'Emails', ColumnTypes.LINK, column_data={
+                'table': link_table.get('name'),
+                'other_table': email_table.get('name'),
+                'display_column_name': email_table_link_display_column
+            })
+        # reset link column in email_table
+        email_table = reset_email_table_link_column(seatable, email_table, link_table)
 
     return email_table, link_table, None, None
 
