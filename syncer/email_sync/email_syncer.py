@@ -34,20 +34,13 @@ class ImapMail(object):
         self.server = None
 
     def client(self):
-        try:
-            self.server = IMAPClient(self.serveraddress, self.port, timeout=self.timeout, ssl_context=self.ssl_context)
-            if '163.com' in self.serveraddress:
-                self.server.id_({"name": "IMAPClient", "version": "2.1.0"})
-            logger.info('connected success')
-        except BaseException as e:
-            logger.exception(e)
-            logger.error(e)
+        self.server = IMAPClient(self.serveraddress, self.port, timeout=self.timeout, ssl_context=self.ssl_context)
+        if '163.com' in self.serveraddress:
+            self.server.id_({"name": "IMAPClient", "version": "2.1.0"})
+        logger.info('connected success')
 
     def login(self):
-        try:
-            self.server.login(self.user, self.passwd)
-        except BaseException as e:
-            logger.error(e)
+        self.server.login(self.user, self.passwd)
 
     @staticmethod
     def decode_str(s):

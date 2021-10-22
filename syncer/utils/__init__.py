@@ -372,7 +372,9 @@ def check_imap_account(imap_server, email_user, email_password):
         imap.client()
         imap.login()
     except Exception as e:
-        return 'imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e)
+        logger.exception(e)
+        logger.error('imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e))
+        return 'email login error'
 
     return None
 
