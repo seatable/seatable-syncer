@@ -13,7 +13,7 @@ from config import Config
 from models.sync_models import SyncJobs
 from scheduler import scheduler_jobs_manager
 from email_sync.email_syncer import sync as sync_emails
-from utils import check_api_token_and_resources, email_sync_tables_dict
+from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables
 from utils.constants import JOB_TYPE_EMAIL_SYNC
 
 logger = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ def sync_jobs_api(dtable_uuid):
         trigger_detail = data.get('trigger_detail')
         job_type = data.get('job_type')
         detail = data.get('detail')
+        lang = data.get('lang')
         if not all([name, api_token, trigger_detail, detail, job_type]):
             return {'error_msg': 'Bad request.'}, 400
 
@@ -80,10 +81,35 @@ def sync_jobs_api(dtable_uuid):
         if job_type not in [JOB_TYPE_EMAIL_SYNC]:
             return {'error_msg': 'job_type invalid.'}, 400
 
+        try:
+            seatable = SeaTableAPI(api_token, Config.DTABLE_WEB_SERVICE_URL)
+            seatable.auth()
+        except Exception as e:
+            logger.error('seatable auth error: %s', e)
+            return {'error_msg': 'api_token invalid.'}, 400
+
         if job_type == JOB_TYPE_EMAIL_SYNC:
-            error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
-            if error_msg:
-                return {'error_msg': error_msg}, 400
+            email_table_id = detail.get('email_table_id')
+            link_table_id = detail.get('link_table_id')
+
+            try:
+                email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
+            except Exception as e:
+                logger.exception(e)
+                logger.error('check email sync tables error: %s', e)
+                return {'error_msg': 'Internal Server Error.'}, 500
+
+            if error_body and status_code:
+                return error_body, status_code
+
+            detail.update({
+                'email_table_id': email_table.get('_id'),
+                'link_table_id': link_table.get('_id')
+            })
+
+        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
+        if error_msg:
+            return {'error_msg': error_msg}, 400
 
         job = SyncJobs(
             name=name,
@@ -146,9 +172,15 @@ def sync_job_api(dtable_uuid, job_id):
         api_token = data.get('api_token')
         trigger_detail = data.get('trigger_detail')
         detail = data.get('detail')
+        lang = data.get('lang')
 
-        if trigger_detail and not isinstance(trigger_detail, dict):
-            return {'error_msg': 'trigger_detail invalid.'}, 400
+        if trigger_detail:
+            if not isinstance(trigger_detail, dict):
+                return {'error_msg': 'trigger_detail invalid.'}, 400
+            try:
+                CronTrigger(**trigger_detail)
+            except:
+                return {'error_msg': 'trigger_detail invalid.'}, 400
 
         if detail and not isinstance(detail, dict):
             return {'error_msg': 'detail invalid.'}, 400
@@ -162,16 +194,30 @@ def sync_job_api(dtable_uuid, job_id):
         if not job:
             return {'error_msg': 'Job not found.'}, 404
 
-        if api_token or detail:
-            check_api_token = api_token if api_token else job.api_token
-            if detail:
-                check_detail = json.loads(job.detail)
-                check_detail.update(detail)
-            else:
-                check_detail = None
-            error_msg = check_api_token_and_resources(check_api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job.job_type, detail=check_detail)
-            if error_msg:
-                return {'error_msg': error_msg}, 400
+        check_api_token = api_token if api_token else job.api_token
+        try:
+            seatable = SeaTableAPI(check_api_token, Config.DTABLE_WEB_SERVICE_URL)
+            seatable.auth()
+        except Exception as e:
+            logger.error('seatable auth error: %s', e)
+            return {'error_msg': 'api_token invalid.'}, 400
+
+        if detail:
+            if job.job_type == JOB_TYPE_EMAIL_SYNC:
+                email_table_id = detail.get('email_table_id')
+                link_table_id = detail.get('link_table_id')
+                try:
+                    email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
+                except Exception as e:
+                    logger.exception(e)
+                    logger.error('update job check email sync tables error: %s', e)
+                    return {'error_msg': 'Internal Server Error.'}, 500
+                if error_body and status_code:
+                    return error_body, status_code
+                detail.update({
+                    'email_table_id': email_table.get('_id'),
+                    'link_table_id': link_table.get('_id')
+                })
 
         if name:
             job.name = name
@@ -331,12 +377,26 @@ def run_sync_job_api(job_id):
         email_password = detail['email_password']
         api_token = db_job.api_token
         dtable_web_service_url = Config.DTABLE_WEB_SERVICE_URL
-        email_table_name = detail['email_table_name']
-        link_table_name = detail['link_table_name']
+        email_table_id = detail['email_table_id']
+        link_table_id = detail['link_table_id']
 
         if not all([imap_server, email_user, email_password, api_token, dtable_web_service_url,
-                    email_table_name, link_table_name]):
+                    email_table_id, link_table_id]):
             return {'error_msg': 'Bad request.'}, 400
+
+        try:
+            seatable = SeaTableAPI(api_token, dtable_web_service_url)
+            seatable.auth()
+        except Exception as e:
+            logger.error('job: %s auth error: %s' % (db_job.id, e))
+            return {'error_msg': 'Internal Server Error.'}, 500
+
+        email_table_name, link_table_name = None, None
+        for table in seatable.get_metadata().get('tables', []):
+            if email_table_id == table.get('_id'):
+                email_table_name = table.get('name')
+            if link_table_id == table.get('_id'):
+                link_table_name = table.get('name')
 
         try:
             sync_emails(send_date_str,
