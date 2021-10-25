@@ -142,7 +142,12 @@ class ImapMail(object):
         send_date = datetime.strptime(send_date, '%Y-%m-%d').date()
         total_email_list = []
         for send_box in ['INBOX', 'Sent Items']:
-            self.server.select_folder(send_box, readonly=True)
+            logger.debug('start to get user: %s emails from box: %s', self.user, send_box)
+            try:
+                self.server.select_folder(send_box, readonly=True)
+            except Exception as e:
+                logger.warning('user: %s select email folder: %s error: %s', self.user, send_box, e)
+                continue
             results = self.get_email_results(send_date, mode=mode)
             for mail in results:
                 try:
@@ -195,7 +200,9 @@ def get_emails(send_date, email_server, email_user, email_password, mode='ON'):
     """
     imap = ImapMail(email_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
     imap.client()
+    logger.debug('imap: %s client successfully!', email_server)
     imap.login()
+    logger.debug('email_server: %s email_user: %s, password: %s login imap client successfully!', email_server, email_user, email_password)
     try:
         email_list = imap.get_email_list(send_date, mode=mode)
     except Exception as e:
@@ -350,6 +357,7 @@ def sync(send_date,
 
         seatable = SeaTableAPI(api_token, dtable_web_service_url)
         seatable.auth()
+        logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
 
         # update thread id of emails
         email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable, email_table_name, send_date, email_list)

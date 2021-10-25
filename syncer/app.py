@@ -12,6 +12,7 @@ db.init_app(app)
 
 with app.app_context():
     from routes import sync_routes
+    from models.sync_models import SyncJobs
 
     db.create_all()
 

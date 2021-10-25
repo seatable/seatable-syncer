@@ -5,6 +5,7 @@ import ssl
 import logging
 
 import pytz
+from imapclient.exceptions import LoginError
 from seatable_api import SeaTableAPI
 from seatable_api.constants import ColumnTypes
 from tzlocal import get_localzone
@@ -367,10 +368,17 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
 
 
 def check_imap_account(imap_server, email_user, email_password):
+    """
+    check imap server user and password
+
+    return: error_msg -> str or None
+    """
     try:
         imap = ImapMail(imap_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
         imap.client()
         imap.login()
+    except LoginError:
+        return 'user or password invalid, email user login error'
     except Exception as e:
         logger.exception(e)
         logger.error('imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e))
