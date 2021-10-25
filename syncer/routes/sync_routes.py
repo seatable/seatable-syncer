@@ -10,10 +10,10 @@ from seatable_api.constants import ColumnTypes
 
 from app import db
 from config import Config
+from email_sync.email_syncer import sync as sync_emails
 from models.sync_models import SyncJobs
 from scheduler import scheduler_jobs_manager
-from email_sync.email_syncer import sync as sync_emails
-from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables
+from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, utc_datetime_to_isoformat_timestr, check_imap_account
 from utils.constants import JOB_TYPE_EMAIL_SYNC
 
 logger = logging.getLogger(__name__)
@@ -91,6 +91,14 @@ def sync_jobs_api(dtable_uuid):
         if job_type == JOB_TYPE_EMAIL_SYNC:
             email_table_id = detail.get('email_table_id')
             link_table_id = detail.get('link_table_id')
+            imap_server = detail.get('imap_server')
+            email_user = detail.get('email_user')
+            email_password = detail.get('email_password')
+            if not all([imap_server, email_user, email_password]):
+                return {'error_msg': 'imap_server or email_user or email_password invalid.'}, 400
+            error_msg = check_imap_account(imap_server, email_user, email_password)
+            if error_msg:
+                return {'error_msg': error_msg}, 400
 
             try:
                 email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
@@ -206,6 +214,15 @@ def sync_job_api(dtable_uuid, job_id):
             if job.job_type == JOB_TYPE_EMAIL_SYNC:
                 email_table_id = detail.get('email_table_id')
                 link_table_id = detail.get('link_table_id')
+                imap_server = detail.get('imap_server')
+                email_user = detail.get('email_user')
+                email_password = detail.get('email_password')
+                if not all([imap_server, email_user, email_password]):
+                    return {'error_msg': 'imap_server or email_user or email_password invalid.'}, 400
+                error_msg = check_imap_account(imap_server, email_user, email_password)
+                if error_msg:
+                    return {'error_msg': error_msg}, 400
+
                 try:
                     email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
                 except Exception as e:
@@ -414,4 +431,17 @@ def run_sync_job_api(job_id):
                 link table: %s, send_date: %s, mode: %s error: %s', imap_server, email_user, dtable_web_service_url, email_table_name, link_table_name, send_date_str, mode, e)
             return {'error_msg': 'Internal Server Error.'}, 500
 
-    return {'success': True}, 200
+        last_trigger_time = datetime.utcnow()
+
+        try:
+            db_job.last_trigger_time = last_trigger_time
+            db.session.add(db_job)
+            db.session.commit()
+        except Exception as e:
+            logger.error('update job: %s last trigger time error: %s', db_job, e)
+
+    return {
+        'success': True,
+        'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
+        'job_id': db_job.id
+    }, 200
