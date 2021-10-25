@@ -6,7 +6,7 @@ logging.basicConfig(
     filename=os.path.join(os.environ.get('LOG_DIR', ''), 'sync_server.log'),
     filemode='a',
     format="[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s",
-    level=logging.DEBUG
+    level=logging.INFO
 )
 
 import pymysql
