@@ -7,7 +7,6 @@ import time
 from uuid import uuid4
 
 from seatable_api import SeaTableAPI
-from seatable_api.constants import ColumnTypes
 
 from imapclient import IMAPClient
 from email.parser import Parser
@@ -91,6 +90,18 @@ class ImapMail(object):
                 continue
         return content
 
+    def get_attachments(self, msg, seatable):
+        file_list = []
+        for part in msg.walk():
+            filename = part.get_filename()
+            if filename is not None:
+                filename = self.decode_str(filename)
+                data = part.get_payload(decode=True)
+                info_dict = seatable.upload_bytes_file(filename, data)
+                file_list.append(info_dict)
+        return file_list
+
+
     def get_email_results(self, send_date, mode='ON'):
         td = timedelta(days=1)
         before_send_date = send_date - td
@@ -104,7 +115,7 @@ class ImapMail(object):
             return self.server.search(['SINCE', before_send_date])
         return []
 
-    def gen_email_dict(self, mail, send_date, mode):
+    def gen_email_dict(self, mail, send_date, mode, seatable):
         email_dict = {}
         data = self.server.fetch(mail, ['ENVELOPE'])
         envelope = data[mail][b'ENVELOPE']
@@ -128,6 +139,7 @@ class ImapMail(object):
         content = self.get_content(msg)
 
         in_reply_to = self.get_reply_to(msg)
+        email_dict['Attachment'] = self.get_attachments(msg, seatable)
         email_dict['To'] = to_address.rstrip(',')
         email_dict['Reply to Message ID'] = in_reply_to
         email_dict['UID'] = str(mail)
@@ -138,7 +150,7 @@ class ImapMail(object):
 
         return email_dict
 
-    def get_email_list(self, send_date, mode='ON'):
+    def get_email_list(self, send_date, seatable, mode='ON'):
         send_date = datetime.strptime(send_date, '%Y-%m-%d').date()
         total_email_list = []
         for send_box in ['INBOX', 'Sent Items']:
@@ -151,7 +163,7 @@ class ImapMail(object):
             results = self.get_email_results(send_date, mode=mode)
             for mail in results:
                 try:
-                    email_dict = self.gen_email_dict(mail, send_date, mode)
+                    email_dict = self.gen_email_dict(mail, send_date, mode, seatable)
                     if email_dict:
                         total_email_list.append(email_dict)
                 except Exception as e:
@@ -194,7 +206,7 @@ def str_2_datetime(s: str):
     raise Exception(f"date {s} can't be transfered to datetime")
 
 
-def get_emails(send_date, email_server, email_user, email_password, mode='ON'):
+def get_emails(send_date, seatable, email_server, email_user, email_password, mode='ON'):
     """
     return: email list, [email1, email2...], email is without thread id
     """
@@ -204,7 +216,7 @@ def get_emails(send_date, email_server, email_user, email_password, mode='ON'):
     imap.login()
     logger.debug('email_server: %s email_user: %s, password: %s login imap client successfully!', email_server, email_user, email_password)
     try:
-        email_list = imap.get_email_list(send_date, mode=mode)
+        email_list = imap.get_email_list(send_date, seatable, mode=mode)
     except Exception as e:
         logger.exception(e)
     else:
@@ -338,6 +350,44 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
             seatable.add_link(link_id, link_table_name, email_table_name, row_id, email_dict[message_id]['_id'])
 
 
+def update_emails(seatable, email_table_name, email_list):
+    """
+    update email table
+    email_list: list of email
+    """
+    to_be_updated_attachments_dict = {email['Message ID']: email['Attachment'] for email in email_list if
+                                      email['Attachment']}
+    to_be_updated_message_ids = list(to_be_updated_attachments_dict.keys())
+
+    message_id_row_id_dict = {}
+    step = 100
+    for i in range(0, len(to_be_updated_message_ids), step):
+        message_ids_str = ', '.join([f"'{message_id}'" for message_id in to_be_updated_message_ids[i: i + step]])
+        conditions = f"`Message ID` in ({message_ids_str})"
+        email_rows = query_table_rows(seatable, email_table_name,
+                                      fields='`Message ID`, `_id`',
+                                      conditions=conditions,
+                                      all=False,
+                                      limit=step)
+        message_id_row_id_dict.update({row['Message ID']: row['_id'] for row in email_rows})
+
+    message_id_attachment_dict = {}
+    for email_message_id in to_be_updated_attachments_dict:
+        attachments = to_be_updated_attachments_dict[email_message_id]
+        attachment_list = []
+        for attachment_info_dict in attachments:
+            attachment_list.append(attachment_info_dict)
+        message_id_attachment_dict[email_message_id] = attachment_list
+
+    to_be_updated_attachment_rows = [{
+        'row_id': message_id_row_id_dict[key],
+        'row': {'Attachment': value}
+    } for key, value in message_id_attachment_dict.items()]
+
+    # update attachment rows
+    seatable.batch_update_rows(email_table_name, to_be_updated_attachment_rows)
+
+
 def sync(send_date,
          api_token,
          dtable_web_service_url,
@@ -348,16 +398,16 @@ def sync(send_date,
          email_password,
          mode='ON'):
     try:
+        seatable = SeaTableAPI(api_token, dtable_web_service_url)
+        seatable.auth()
+        logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
+
         # get emails on send_date
-        email_list = sorted(get_emails(send_date, email_server, email_user, email_password, mode=mode), key=lambda x: str_2_datetime(x['Date']))
+        email_list = sorted(get_emails(send_date, seatable, email_server, email_user, email_password, mode=mode), key=lambda x: str_2_datetime(x['Date']))
         if not email_list:
             return
 
         logger.info(f'fetch {len(email_list)} emails')
-
-        seatable = SeaTableAPI(api_token, dtable_web_service_url)
-        seatable.auth()
-        logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
 
         # update thread id of emails
         email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable, email_table_name, send_date, email_list)
@@ -368,6 +418,8 @@ def sync(send_date,
 
         # insert new emails
         seatable.batch_append_rows(email_table_name, email_list)
+        # update attachment
+        update_emails(seatable, settings.EMAIL_TABLE_NAME, email_list)
         # insert new thread rows
         if new_thread_rows:
             seatable.batch_append_rows(link_table_name, new_thread_rows)
