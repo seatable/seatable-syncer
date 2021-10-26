@@ -331,12 +331,22 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
     email_dict = {email['Message ID']: email for email in email_list}
     # add link
     link_id = seatable.get_column_link_id(link_table_name, 'Emails', view_name=None)
-    for key, value in to_be_updated_thread_dict.items():
-        thread_id = key
-        row_id = thread_id_row_id_dict[thread_id]
-        for message_id in value['message_ids']:
-            seatable.add_link(link_id, link_table_name, email_table_name, row_id, email_dict[message_id]['_id'])
 
+    other_rows_ids_map = {}
+    row_id_list = []
+    for thread_id, value in to_be_updated_thread_dict.items():
+        row_id = thread_id_row_id_dict[thread_id]
+        row_id_list.append(row_id)
+        other_rows_ids_map[row_id] = []
+        for message_id in value['message_ids']:
+            other_rows_ids_map[row_id].append(email_dict[message_id]['_id'])
+
+    tables = seatable.get_metadata()
+    table_info = {table['name']: table['_id'] for table in tables['tables']}
+    link_table_id = table_info[link_table_name]
+    email_table_id = table_info[email_table_name]
+
+    seatable.batch_update_links(link_id, link_table_id, email_table_id, row_id_list, other_rows_ids_map)
 
 def sync(send_date,
          api_token,
