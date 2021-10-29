@@ -418,8 +418,11 @@ def sync(send_date,
 
         # insert new emails
         seatable.batch_append_rows(email_table_name, email_list)
+
+        # wait several seconds for dtable-db
+        time.sleep(2)
         # update attachment
-        update_emails(seatable, settings.EMAIL_TABLE_NAME, email_list)
+        update_emails(seatable, email_table_name, email_list)
         # insert new thread rows
         if new_thread_rows:
             seatable.batch_append_rows(link_table_name, new_thread_rows)
