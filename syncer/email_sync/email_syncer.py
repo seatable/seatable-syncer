@@ -300,6 +300,11 @@ def fill_email_list_with_row_id(seatable, email_table_name, email_list):
     return email_list
 
 
+def get_thread_email_ids(thread_row_emails):
+    if thread_row_emails is None:
+        return []
+    return [email['row_id'] for email in thread_row_emails]
+
 def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, email_list, to_be_updated_thread_dict):
     """
     update thread table
@@ -313,15 +318,15 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
         thread_ids_str = ', '.join([f"'{thread_id}'" for thread_id in to_be_updated_thread_ids[i: i+step]])
         conditions = f"`Thread ID` in ({thread_ids_str})"
         thread_rows = query_table_rows(seatable, link_table_name,
-                                       fields='`Thread ID`, `_id`',
+                                       fields='`Thread ID`, `_id`, `Emails`',
                                        conditions=conditions,
                                        all=False,
                                        limit=step)
-        thread_id_row_id_dict.update({row['Thread ID']: row['_id'] for row in thread_rows})
+        thread_id_row_id_dict.update({row['Thread ID']: [row['_id'], get_thread_email_ids(row['Emails'])] for row in thread_rows})
 
     # batch update Last Updated
     to_be_updated_last_updated_rows = [{
-        'row_id': thread_id_row_id_dict[key],
+        'row_id': thread_id_row_id_dict[key][0],
         'row': {'Last Updated': value['Last Updated']}
     } for key, value in to_be_updated_thread_dict.items()]
     seatable.batch_update_rows(link_table_name, to_be_updated_last_updated_rows)
@@ -334,10 +339,11 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
 
     other_rows_ids_map = {}
     row_id_list = []
+
     for thread_id, value in to_be_updated_thread_dict.items():
-        row_id = thread_id_row_id_dict[thread_id]
+        row_id = thread_id_row_id_dict[thread_id][0]
         row_id_list.append(row_id)
-        other_rows_ids_map[row_id] = []
+        other_rows_ids_map[row_id] = thread_id_row_id_dict[thread_id][1]
         for message_id in value['message_ids']:
             other_rows_ids_map[row_id].append(email_dict[message_id]['_id'])
 
