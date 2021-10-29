@@ -1,0 +1,33 @@
+{% extends "base.html" %} 
+{% block title %}python flask user page{% endblock %} 
+{% block head %} 
+    <style type="text/css"></style> 
+{% endblock %} 
+{% block content %}
+    <span color = 'red'>{{ message}}</span>
+    <table>
+        <thead>
+          <tr>
+            <th width="25%">Bases</th>
+            <th width="20%">Job name</th>
+            <th width="10%">Job type</th>
+            <th width="10%">Is valid</th>
+            <th width="25%">Last trigger time</th>
+            <th width="10%">Trigger type</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for job in syncer_jobs%}
+        <tr>
+          <td>{{job.dtable_uuid}}</td>
+          <td>{{job.name}}</td>
+          <td>{{job.job_type}}</td>
+          <td>{{job.is_valid}}</td>
+          <td>{{job.last_trigger_time}}</td>
+          <td>{{job.trigger_detail.trigger_type}}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+{% endblock %} 

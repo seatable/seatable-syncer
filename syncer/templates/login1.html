@@ -1,0 +1,25 @@
+{% extends "base.html" %} 
+{% block title %}python flask user page{% endblock %} 
+{% block head %} 
+    <style type="text/css"></style> 
+{% endblock %} 
+{% block content %} 
+    <form action="{{ url_for('user.login') }}" method="post"> 
+        <table>
+                <span color = 'red'>{{ message}}</span>
+                <tr>
+                    <td> 用户名：</td>><td><input type="text" name="userName"/></td>
+                </tr>
+                 <tr>
+                    <td>密码：</td>><td><input type="password" name="userPwd"/></td>
+                </tr>
+                 <tr>
+                     <td></td>
+                     <td>
+                         <input type="reset" value="重置">
+                         <input type="submit" value="提交">
+                     </td>
+                </tr>
+            </table>
+    </form> 
+{% endblock %} 

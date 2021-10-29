@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from apscheduler.triggers.cron import CronTrigger
-from flask import current_app as app, request
+from flask import current_app as app, request, render_template, session, redirect, url_for
 from flask_cors import cross_origin
 from seatable_api import SeaTableAPI
 from seatable_api.constants import ColumnTypes
@@ -445,3 +445,41 @@ def run_sync_job_api(job_id):
         'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
         'job_id': db_job.id
     }, 200
+
+
+@app.route('/account/login/', methods=['POST', 'GET'])
+def login():
+    if Config.ADMIN_SYNCER_USER == '' or Config.ADMIN_SYNCER_PASSWORD == '':
+        return render_template('login.html', message='please config admin user!')
+    if request.method == 'GET':
+        return render_template('login.html')
+    userName = request.form.get('userName')
+    userPwd = request.form.get('userPwd')
+    if userName == Config.ADMIN_SYNCER_USER and userPwd == Config.ADMIN_SYNCER_PASSWORD:
+        session['user'] = userName
+        return redirect(url_for('sync_jobs'))
+
+    elif userName and (userName != Config.ADMIN_SYNCER_USER or userPwd != Config.ADMIN_SYNCER_PASSWORD):
+        return render_template('login.html', message='username or password error')
+    return render_template('login.html')
+
+
+@app.route("/admin/sync-jobs/")
+def sync_jobs():
+    if session.get("user"):
+        session['user'] = session.get("user")
+        jobs = SyncJobs.query.filter().all()
+        if not jobs:
+            return render_template('sync_jobs.html', message='job not found.')
+        dtable_sync_jobs_list = []
+        for job in jobs:
+            dtable_sync_jobs_list.append(job.to_dict())
+        sync_jobs = dtable_sync_jobs_list
+        return render_template('sync_jobs.html', syncer_jobs=sync_jobs)
+    return redirect(url_for('login'))
+
+
+@app.route('/login_out/', methods=['GET', 'POST'])
+def login_out():
+    session.clear()
+    return redirect(url_for('login'))
