@@ -4,8 +4,8 @@
     <style type="text/css"></style> 
 {% endblock %} 
 {% block content %}
+    <div align="right"><a href="{{ url_for('login_out')}}">logout</a></div>
     <div>Sync jobs:</div>
-    <a href="{{ url_for('login')}}">logout</a>
     {% if message %}
         <span style="color:red">{{message}}</span>
     {% else %}
