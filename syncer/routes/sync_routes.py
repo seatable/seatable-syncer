@@ -15,6 +15,7 @@ from models.sync_models import SyncJobs
 from scheduler import scheduler_jobs_manager
 from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, utc_datetime_to_isoformat_timestr, check_imap_account
 from utils.constants import JOB_TYPE_EMAIL_SYNC
+from form.login_form import LoginForm
 
 logger = logging.getLogger(__name__)
 
@@ -449,19 +450,17 @@ def run_sync_job_api(job_id):
 
 @app.route('/account/login/', methods=['POST', 'GET'])
 def login():
-    if Config.ADMIN_SYNCER_USER == '' or Config.ADMIN_SYNCER_PASSWORD == '':
-        return render_template('login.html', message='please config admin user!')
-    if request.method == 'GET':
-        return render_template('login.html')
-    userName = request.form.get('userName')
-    userPwd = request.form.get('userPwd')
-    if userName == Config.ADMIN_SYNCER_USER and userPwd == Config.ADMIN_SYNCER_PASSWORD:
-        session['user'] = userName
-        return redirect(url_for('sync_jobs'))
+    form = LoginForm()
+    if not form.validate_on_submit():
+        return render_template('login.html', form=form)
 
-    elif userName and (userName != Config.ADMIN_SYNCER_USER or userPwd != Config.ADMIN_SYNCER_PASSWORD):
-        return render_template('login.html', message='username or password error')
-    return render_template('login.html')
+    username = form.username.data
+    password = form.password.data
+    if username == Config.ADMIN_SYNCER_USER and password == Config.ADMIN_SYNCER_PASSWORD:
+        session['user'] = username
+        return redirect(url_for('sync_jobs'))
+    form.password.errors.append('password or username error')
+    return render_template('login.html', form=form)
 
 
 @app.route("/admin/sync-jobs/")
