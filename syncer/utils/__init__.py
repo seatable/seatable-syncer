@@ -302,12 +302,13 @@ def check_tables(existed_tables, target_table_id, required_columns):
             continue
         for required_column in required_columns:
             required_column_name, required_column_type = required_column['column_name'], required_column['type']
+            check_required = required_column.get('check_required', True)
             required_pass = False
             for column in table.get('columns', []):
                 if required_column_name == column.get('name') and required_column_type == column.get('type'):
                     required_pass = True
                     break
-            if not required_pass:
+            if not required_pass and check_required:
                 return True, required_pass, 'table `%s` has no `%s` column or column type is not \'%s\'' % (
                     target_table_id, required_column_name, required_column_type)
         return True, True, None

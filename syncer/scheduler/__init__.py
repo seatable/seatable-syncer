@@ -3,6 +3,7 @@ import logging
 
 import pytz
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
+from apscheduler.jobstores.base import JobLookupError
 # from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.gevent import GeventScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -73,7 +74,12 @@ class SchedulerJobsManager:
             )
 
     def remove_job(self, job_id):
-        self.scheduler.remove_job(job_id)
+        try:
+            self.scheduler.remove_job(job_id)
+        except JobLookupError as e:
+            logger.warning('look up job: %s not found when remove job', job_id)
+        except Exception as e:
+            logger.error('remove job: %s error: %s', job_id, e)
 
     def update_job(self, db_job):
         self.remove_job(db_job.job_id)

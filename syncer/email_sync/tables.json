@@ -7,7 +7,7 @@
         {"column_name": "Subject", "type": "text"},
         {"column_name": "cc", "type": "text"},
         {"column_name": "Content", "type": "long-text"},
-        {"column_name": "Attachment", "type": "file"},
+        {"column_name": "Attachment", "type": "file", "check_required": false},
         {"column_name": "Date", "type": "date", "data": {"format": "YYYY-MM-DD"}},
         {"column_name": "Reply to Message ID", "type": "text"},
         {"column_name": "Thread ID", "type": "text"}
