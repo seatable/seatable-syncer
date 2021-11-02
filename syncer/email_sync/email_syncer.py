@@ -90,15 +90,14 @@ class ImapMail(object):
                 continue
         return content
 
-    def get_attachments(self, msg, seatable):
+    def get_attachments(self, msg):
         file_list = []
         for part in msg.walk():
             filename = part.get_filename()
             if filename is not None:
                 filename = self.decode_str(filename)
                 data = part.get_payload(decode=True)
-                info_dict = seatable.upload_bytes_file(filename, data)
-                file_list.append(info_dict)
+                file_list.append({'file_name': filename, 'file_data': data})
         return file_list
 
 
@@ -115,7 +114,7 @@ class ImapMail(object):
             return self.server.search(['SINCE', before_send_date])
         return []
 
-    def gen_email_dict(self, mail, send_date, mode, seatable):
+    def gen_email_dict(self, mail, send_date, mode):
         email_dict = {}
         data = self.server.fetch(mail, ['ENVELOPE'])
         envelope = data[mail][b'ENVELOPE']
@@ -139,7 +138,7 @@ class ImapMail(object):
         content = self.get_content(msg)
 
         in_reply_to = self.get_reply_to(msg)
-        email_dict['Attachment'] = self.get_attachments(msg, seatable)
+        email_dict['Attachment'] = self.get_attachments(msg)
         email_dict['To'] = to_address.rstrip(',')
         email_dict['Reply to Message ID'] = in_reply_to
         email_dict['UID'] = str(mail)
@@ -150,7 +149,7 @@ class ImapMail(object):
 
         return email_dict
 
-    def get_email_list(self, send_date, seatable, mode='ON'):
+    def get_email_list(self, send_date, mode='ON'):
         send_date = datetime.strptime(send_date, '%Y-%m-%d').date()
         total_email_list = []
         for send_box in ['INBOX', 'Sent Items']:
@@ -163,7 +162,7 @@ class ImapMail(object):
             results = self.get_email_results(send_date, mode=mode)
             for mail in results:
                 try:
-                    email_dict = self.gen_email_dict(mail, send_date, mode, seatable)
+                    email_dict = self.gen_email_dict(mail, send_date, mode)
                     if email_dict:
                         total_email_list.append(email_dict)
                 except Exception as e:
@@ -206,7 +205,7 @@ def str_2_datetime(s: str):
     raise Exception(f"date {s} can't be transfered to datetime")
 
 
-def get_emails(send_date, seatable, email_server, email_user, email_password, mode='ON'):
+def get_emails(send_date, email_server, email_user, email_password, mode='ON'):
     """
     return: email list, [email1, email2...], email is without thread id
     """
@@ -216,7 +215,7 @@ def get_emails(send_date, seatable, email_server, email_user, email_password, mo
     imap.login()
     logger.debug('email_server: %s email_user: %s, password: %s login imap client successfully!', email_server, email_user, email_password)
     try:
-        email_list = imap.get_email_list(send_date, seatable, mode=mode)
+        email_list = imap.get_email_list(send_date, mode=mode)
     except Exception as e:
         logger.exception(e)
     else:
@@ -404,6 +403,22 @@ def update_emails(seatable, email_table_name, email_list):
     seatable.batch_update_rows(email_table_name, to_be_updated_attachment_rows)
 
 
+def upload_attachments(seatable: SeaTableAPI, email_list):
+    for email in email_list:
+        file_list = email.pop('Attachment', [])
+        file_info_list = []
+        for file in file_list:
+            file_name = file.get('file_name')
+            file_data = file.get('file_data')
+            try:
+                file_info = seatable.upload_bytes_file(file_name, file_data)
+                file_info_list.append(file_info)
+            except Exception as e:
+                logger.error('upload email: %s attachment: %s error: %s', email.get('Message ID'), file_name, e)
+        email['Attachment'] = file_info_list
+    return email_list
+
+
 def sync(send_date,
          api_token,
          dtable_web_service_url,
@@ -419,7 +434,7 @@ def sync(send_date,
         logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
 
         # get emails on send_date
-        email_list = sorted(get_emails(send_date, seatable, email_server, email_user, email_password, mode=mode), key=lambda x: str_2_datetime(x['Date']))
+        email_list = sorted(get_emails(send_date, email_server, email_user, email_password, mode=mode), key=lambda x: str_2_datetime(x['Date']))
         if not email_list:
             return
 
@@ -432,6 +447,8 @@ def sync(send_date,
         if not email_list:
             return
 
+        # upload attachments
+        email_list = upload_attachments(seatable, email_list)
         # insert new emails
         seatable.batch_append_rows(email_table_name, email_list)
 
