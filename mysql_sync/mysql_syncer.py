@@ -139,6 +139,8 @@ class MysqlSync(object):
                     row[key] = parse_long_text(cell_value)
                 elif base_type == 'multiple-select':
                     row[key] = parse_multiple_select(cell_value)
+                elif base_type == 'single-select' and cell_value is None:
+                    row[key] = ''
                 elif base_type == 'file':
                     row[key] = parse_file(self.base, cell_value)
 
