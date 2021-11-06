@@ -125,15 +125,14 @@ class MysqlSync(object):
         return self.parse_mysql_rows(self.cursor.fetchall())
 
     def parse_mysql_rows(self, mysql_rows):
+        from datetime import timedelta
         for row in mysql_rows:
             for key in row:
                 mysql_field = self.field_info[key]
                 base_type = mysql_to_dtable_dict.get(mysql_field)
                 cell_value = row[key]
 
-                if base_type == 'text' and cell_value is not None:
-                    row[key] = str(cell_value)  # deal time field
-                if base_type == 'date':
+                if isinstance(cell_value, datetime) or isinstance(cell_value, timedelta):
                     row[key] = str(cell_value)
                 elif base_type == 'long-text':
                     row[key] = parse_long_text(cell_value)
