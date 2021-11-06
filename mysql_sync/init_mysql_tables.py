@@ -88,18 +88,18 @@ def get_mysql_field_info(mysql_table_name, cursor):
 
 def main():
     try:
+        seatable = SeaTableAPI(settings.BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
+        seatable.auth()
+    except Exception as e:
+        print('init seatable api error: ', e, file=sys.stderr)
+        exit(-1)
+
+    try:
         conn = pymysql.connect(user=settings.MYSQL_USER, password=settings.MYSQL_PASSWORD,
                                database=settings.DB_NAME, host=settings.MYSQL_HOST, charset=settings.CHARSET)
         cursor = conn.cursor(cursor=pymysql.cursors.DictCursor)
     except Exception as e:
         print('database connected error: ', e, file=sys.stderr)
-        exit(-1)
-
-    try:
-        seatable = SeaTableAPI(settings.BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
-        seatable.auth()
-    except Exception as e:
-        print('init seatable api error: ', e, file=sys.stderr)
         exit(-1)
 
     try:
