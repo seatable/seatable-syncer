@@ -26,4 +26,3 @@ if os.path.isfile(os.path.join(os.path.dirname(__file__), 'mysql_syncer_settings
         from mysql_syncer_settings import *
     except:
         pass
-
