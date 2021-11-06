@@ -1,11 +1,6 @@
 
 
 {
-    "BOOLEAN数据库中设置后显示的类型为tinyint": "number",
-    "BOOL数据库中设置后显示的类型为tinyint": "number",
-    "JSON": "long-text",
-    "BIT": "text",
-
     "INT": "number",
     "INTEGER": "number",
     "TINYINT": "number",
