@@ -105,19 +105,8 @@ class MysqlSync(object):
         field_info = self.cursor.fetchall()
         self.field_info = {field['Field']: field['Type'].split('(')[0].upper() for field in field_info}
 
-    def parse_geometry(self, field):
-        """
-        parse geometry type as text
-        :param field:
-        :return:
-        """
-        if self.field_info.get(field) in geometry_type_list:
-            return f'astext({field}) as {field}'
-        return field
-
     def get_mysql_data(self):
-        sql_fields = [self.parse_geometry(field) for field in self.field_info.keys()]
-        sql = "SELECT " + ','.join(sql_fields) + " FROM " + self.mysql_table_name
+        sql = "SELECT " + ','.join(self.field_info.keys()) + " FROM " + self.mysql_table_name
         if self.mode == "ON":
             sql += " WHERE " + "date(" + settings.DATE_FIELD + ") = date_sub(curdate(),interval 1 day)"
         self.cursor.execute(sql)
@@ -140,8 +129,6 @@ class MysqlSync(object):
                     row[key] = parse_multiple_select(cell_value)
                 elif base_type == 'single-select' and cell_value is None:
                     row[key] = ''
-                elif base_type == 'file':
-                    row[key] = parse_file(self.base, cell_value)
 
         return mysql_rows
 

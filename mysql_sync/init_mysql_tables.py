@@ -76,8 +76,6 @@ def mysql_type_to_seatable_type(field_type):
         return ColumnTypes.SINGLE_SELECT
     elif f_type == 'multiple-select':
         return ColumnTypes.MULTIPLE_SELECT
-    elif f_type == 'file':
-        return ColumnTypes.FILE
 
 
 def get_mysql_field_info(mysql_table_name, cursor):
