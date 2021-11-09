@@ -46,8 +46,8 @@ class SchedulerJobsManager:
     def invalidate_job(self, event):
         job_id = event.job_id
         scheduled_run_time = event.scheduled_run_time
+        logger.error('job: %s execute error: %s run time at: %s', job_id, event.exception, scheduled_run_time)
         if not isinstance(event.exception, SchedulerJobInvalidException):
-            logger.error('job: %s execute error: %s run time at: %s', job_id, event.exception, scheduled_run_time)
             return
         db_job_id = job_id[len(SYNC_JOB_PREFIX):]
         with app.app_context():
@@ -56,6 +56,8 @@ class SchedulerJobsManager:
                 db.session.commit()
             except Exception as e:
                 logger.error('invalidate job: %s error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)
+            else:
+                self.remove_job(job_id)
 
     def add_job(self, db_job):
         logger.info('add job: %s to scheduler...', db_job)

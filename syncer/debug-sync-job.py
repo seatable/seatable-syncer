@@ -115,6 +115,8 @@ def main():
     if not db_job:
         logger.error('job: %s not found.', job_id)
         return
+    if not db_job.is_valid:
+        logger.warning('job: %s is_valid: %s', db_job, db_job.is_valid)
     logger.info('job: %s', db_job)
     logger.debug('detail: %s', db_job.detail)
     logger.debug('trigger_detail: %s', db_job.trigger_detail)

@@ -363,7 +363,7 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
     return None
 
 
-def check_imap_account(imap_server, email_user, email_password):
+def check_imap_account(imap_server, email_user, email_password, return_imap=False):
     """
     check imap server user and password
 
@@ -374,13 +374,22 @@ def check_imap_account(imap_server, email_user, email_password):
         imap.client()
         imap.login()
     except LoginError:
-        return 'user or password invalid, email user login error'
+        if not return_imap:
+            return 'user or password invalid, email user login error'
+        else:
+            return None, 'user or password invalid, email user login error'
     except Exception as e:
         logger.exception(e)
         logger.error('imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e))
-        return 'email login error'
+        if not return_imap:
+            return 'email login error'
+        else:
+            return None, 'email login error'
 
-    return None
+    if not return_imap:
+        return None
+    else:
+        return imap, None
 
 
 def utc_datetime_to_isoformat_timestr(utc_datetime):

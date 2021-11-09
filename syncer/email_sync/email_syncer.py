@@ -1,9 +1,9 @@
 import argparse
-from datetime import datetime, timedelta
 import logging
 import ssl
 import sys
 import time
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from seatable_api import SeaTableAPI
@@ -122,6 +122,15 @@ class ImapMail(object):
         sender = envelope.sender
         send_to = envelope.to
         cc = envelope.cc
+        if not sender:
+            logger.warning('account: %s message: %s no sender!', self.user, mail)
+        if not send_to:
+            logger.warning('account: %s message: %s no recipient!', self.user, mail)
+        logger.debug('envelope: %s', envelope)
+        logger.debug('send_time: %s', send_time)
+        logger.debug('sender: %s', sender)
+        logger.debug('send_to: %s', send_to)
+        logger.debug('cc: %s', cc)
         message_id = envelope.message_id.decode() if envelope.message_id else ''
         email_dict['Subject'] = envelope.subject.decode() if envelope.subject else ''
         if mode == 'ON' and send_time.date() != send_date:
@@ -129,8 +138,8 @@ class ImapMail(object):
         if mode == 'SINCE' and send_time.date() < send_date:
             return
         parse_address = lambda x: (x.mailbox.decode() if x.mailbox else '') + '@' + (x.host.decode() if x.host else '')
-        email_dict['From'] = parse_address(sender[0])
-        to_address = ','.join([parse_address(to) for to in send_to])
+        email_dict['From'] = parse_address(sender[0]) if sender else ''
+        to_address = ','.join([parse_address(to) for to in send_to]) if send_to else ''
         cc_address = ','.join([parse_address(to) for to in cc]) if cc else ''
         msg_dict = self.server.fetch(mail, ['BODY[]'])
         mail_body = msg_dict[mail][b'BODY[]']
@@ -205,15 +214,16 @@ def str_2_datetime(s: str):
     raise Exception(f"date {s} can't be transfered to datetime")
 
 
-def get_emails(send_date, email_server, email_user, email_password, mode='ON'):
+def get_emails(send_date, email_server, email_user, email_password, imap: ImapMail=None, mode='ON'):
     """
     return: email list, [email1, email2...], email is without thread id
     """
-    imap = ImapMail(email_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
-    imap.client()
-    logger.debug('imap: %s client successfully!', email_server)
-    imap.login()
-    logger.debug('email_server: %s email_user: %s, password: %s login imap client successfully!', email_server, email_user, email_password)
+    if not imap:
+        imap = ImapMail(email_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
+        imap.client()
+        logger.debug('imap: %s client successfully!', email_server)
+        imap.login()
+        logger.debug('email_server: %s email_user: %s, password: %s login imap client successfully!', email_server, email_user, email_password)
     try:
         email_list = imap.get_email_list(send_date, mode=mode)
     except Exception as e:
@@ -427,6 +437,7 @@ def sync(send_date,
          email_server,
          email_user,
          email_password,
+         imap=None,
          mode='ON'):
     try:
         seatable = SeaTableAPI(api_token, dtable_web_service_url)
@@ -434,7 +445,7 @@ def sync(send_date,
         logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
 
         # get emails on send_date
-        email_list = sorted(get_emails(send_date, email_server, email_user, email_password, mode=mode), key=lambda x: str_2_datetime(x['Date']))
+        email_list = sorted(get_emails(send_date, email_server, email_user, email_password, imap=imap, mode=mode), key=lambda x: str_2_datetime(x['Date']))
         if not email_list:
             return
 

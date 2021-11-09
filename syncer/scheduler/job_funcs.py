@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 
 from seatable_api.main import SeaTableAPI
@@ -27,7 +28,18 @@ def email_sync_job_func(
     link_table_id = detail['link_table_id']
 
     # check email login
-    error_msg = check_imap_account(imap_server, email_user, email_password)
+    try_count = 3
+    error_msg = None
+    imap = None
+    while try_count:
+        imap, error_msg = check_imap_account(imap_server, email_user, email_password, return_imap=True)
+        if imap and not error_msg:
+            break
+        else:
+            try_count -= 1
+            logger.error('email account: %s login error: %s, left try_count: %s (retry in 10s)', email_user, error_msg, try_count)
+            if try_count:
+                time.sleep(10)
     if error_msg:
         raise SchedulerJobInvalidException(error_msg)
 
@@ -54,5 +66,6 @@ def email_sync_job_func(
         imap_server,
         email_user,
         email_password,
+        imap=imap,
         mode='ON'
     )
