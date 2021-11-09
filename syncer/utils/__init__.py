@@ -315,7 +315,7 @@ def check_tables(existed_tables, target_table_id, required_columns):
     return False, None, 'table %s not found' % target_table_id
 
 
-def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid=None, job_type=None, detail=None):
+def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid=None, job_type=None, detail=None, check_imap=True):
     """
     check api token and names
     return invalid message or None
@@ -356,9 +356,10 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
         if error_msg:
             return error_msg
 
-        error_msg = check_imap_account(imap_server, email_user, email_password)
-        if error_msg:
-            return error_msg
+        if check_imap:
+            error_msg = check_imap_account(imap_server, email_user, email_password)
+            if error_msg:
+                return error_msg
 
     return None
 
@@ -375,16 +376,16 @@ def check_imap_account(imap_server, email_user, email_password, return_imap=Fals
         imap.login()
     except LoginError:
         if not return_imap:
-            return 'user or password invalid, email user login error'
+            return 'user or password invalid, email: %s user login error' % (email_user,)
         else:
-            return None, 'user or password invalid, email user login error'
+            return None, 'user or password invalid, email: %s user login error' % (email_user,)
     except Exception as e:
         logger.exception(e)
         logger.error('imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e))
         if not return_imap:
-            return 'email login error'
+            return 'email: %s login error: %s' % (email_user, e)
         else:
-            return None, 'email login error'
+            return None, 'email: %s login error: %s' % (email_user, e)
 
     if not return_imap:
         return None

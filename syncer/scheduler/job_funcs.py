@@ -17,7 +17,7 @@ def email_sync_job_func(
     detail
 ):
     # check seatable api token
-    error_msg = check_api_token_and_resources(api_token, dtable_web_service_url, job_type='email-sync', detail=detail)
+    error_msg = check_api_token_and_resources(api_token, dtable_web_service_url, job_type='email-sync', detail=detail, check_imap=False)
     if error_msg:
         raise SchedulerJobInvalidException(error_msg)
 
