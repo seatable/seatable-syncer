@@ -37,12 +37,12 @@ option_colors = [
 ]
 
 
-def init_select_option(field_info, seatable, base_table_name):
+def init_select_option(field_info, seatable, table_name):
     """
     init multiple select and single select
     :param field_info:
     :param seatable:
-    :param base_table_name:
+    :param table_name:
     :return:
     """
     for field in field_info:
@@ -55,7 +55,7 @@ def init_select_option(field_info, seatable, base_table_name):
             for option in option_list:
                 option_color = random.choice(option_colors)
                 options.append({'name': option.strip("'"), "color": option_color['color'], "textColor": option_color['text_color']})
-            seatable.add_column_options(base_table_name, col, options)
+            seatable.add_column_options(table_name, col, options)
 
 
 def mysql_type_to_seatable_type(field_type):
@@ -109,20 +109,20 @@ def main():
         } for field in field_info]
 
         # create table and columns
-        base_table_name = settings.BASE_TABLE_NAME
-        seatable.add_table(base_table_name, lang=settings.LANG)
+        table_name = settings.MYSQL_TABLE_NAME
+        seatable.add_table(table_name, lang=settings.LANG)
         for index, col in enumerate(columns):
             col_name, col_type = col.get('column_name'), col.get('type')
             if index == 0:
-                seatable.rename_column(base_table_name, '0000', col_name)
+                seatable.rename_column(table_name, '0000', col_name)
                 if col_type != ColumnTypes.TEXT:
-                    seatable.modify_column_type(base_table_name, '0000', col_type)
+                    seatable.modify_column_type(table_name, '0000', col_type)
                 continue
 
-            seatable.insert_column(base_table_name, col_name, ColumnTypes(col_type), column_data=col.get('data'))
-            print(f'table {base_table_name}, insert column {col_name} type {col_type}')
+            seatable.insert_column(table_name, col_name, ColumnTypes(col_type), column_data=col.get('data'))
+            print(f'table {table_name}, insert column {col_name} type {col_type}')
 
-        init_select_option(field_info, seatable, base_table_name)
+        init_select_option(field_info, seatable, table_name)
 
     except Exception as e:
         print('create tables error: ', e, file=sys.stderr)
@@ -131,10 +131,10 @@ def main():
         conn.close()
         cursor.close()
 
-    print('Successfully init base tables!')
+    print('Successfully init tables!')
     print('mysql table:')
     print('<' * 30)
-    columns = seatable.list_columns(base_table_name)
+    columns = seatable.list_columns(table_name)
     for col in columns:
         print(f"{col['name']:20}\t{ColumnTypes(col['type'])}")
     print('>' * 30)

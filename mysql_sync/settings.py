@@ -1,7 +1,6 @@
 # seatable
 BASE_API_TOKEN = ''
 DTABLE_WEB_SERVICE_URL = ''
-BASE_TABLE_NAME = ''
 LANG = ''
 
 # mysql
@@ -15,6 +14,7 @@ MYSQL_TABLE_NAME = ''
 
 MODE = 'ALL'  # ALL or ON
 DATE_FIELD = ''
+UNIQUE_FIELD = ''  # primary key or unique key
 
 
 import os

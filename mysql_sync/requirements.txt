@@ -1,0 +1,5 @@
+seatable-api
+Markdown
+beautifulsoup4
+PyMySQL
+lxml
