@@ -45,16 +45,18 @@ class DataUtil(object):
         self.field_info = {field['Field']: field['Type'].split('(')[0].upper() for field in field_info}
 
     def get_base_unique_rows(self):
-        return fixed_sql_query(self.base, f"select {self.unique_field} from `{self.table_name}`")
+        result = fixed_sql_query(self.base, f"select count(*) from `{self.table_name}`")[0]
+        total_count = result['COUNT(*)']
+        unique_rows = {}
+        step = 100
+        for i in range(0, total_count, step):
+            rows = fixed_sql_query(self.base, f"select {self.unique_field} from `{self.table_name}` limit {i*step},{step}")
+            unique_rows.update({row[self.unique_field]: True for row in rows})
+        return unique_rows
 
     def check_base(self):
         base_count_info = fixed_sql_query(self.base, f"select count(*) as base_count from `{self.table_name}`")
         return True if base_count_info[0].get('base_count') else False
-
-    def get_mysql_row_count(self):
-        count_sql = "SELECT COUNT(*) AS total_count FROM " + self.table_name
-        self.cursor.execute(count_sql)
-        return self.cursor.fetchone().get('total_count')
 
     def get_mysql_data(self):
         sql = "SELECT " + ','.join(["`%s`" % key for key in self.field_info.keys()]) + " FROM " + self.table_name
@@ -73,9 +75,16 @@ class DataUtil(object):
                 break
             i += 1
         if self.mode == 'ON':
-            unique_rows = [row[self.unique_field] for row in self.get_base_unique_rows()]
-            mysql_rows = [row for row in mysql_rows if row[self.unique_field] not in unique_rows]
-
+            unique_field = self.unique_field
+            table_name = self.table_name
+            step = 100
+            base_unique_rows = {}
+            for i in range(0, len(mysql_rows), step):
+                query_str = ', '.join([f"{row[unique_field]}" for row in mysql_rows[i: i + step]])
+                query_sql = f"select `{unique_field}` from `{table_name}` where `{unique_field}` in ({query_str})"
+                unique_rows = fixed_sql_query(self.base, query_sql)
+                base_unique_rows.update({row[unique_field]: True for row in unique_rows})
+            mysql_rows = [row for row in mysql_rows if not base_unique_rows.get(row[unique_field])]
         return self.parse_mysql_rows(mysql_rows)
 
     def parse_mysql_rows(self, mysql_rows):
