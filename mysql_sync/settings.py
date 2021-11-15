@@ -13,6 +13,7 @@ CHARSET = 'utf8'
 MYSQL_TABLE_NAME = ''
 
 MODE = 'ALL'  # ALL or ON
+DATE = ''     # only for ON mode, if empty or None default today
 DATE_FIELD = ''
 UNIQUE_FIELD = ''  # primary key or unique key
 

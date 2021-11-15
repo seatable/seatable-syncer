@@ -58,10 +58,14 @@ class DataUtil(object):
         base_count_info = fixed_sql_query(self.base, f"select count(*) as base_count from `{self.table_name}`")
         return True if base_count_info[0].get('base_count') else False
 
-    def get_mysql_data(self):
+    def get_mysql_data(self, date=None):
         sql = "SELECT " + ','.join(["`%s`" % key for key in self.field_info.keys()]) + " FROM " + self.table_name
         if self.mode == 'ON':
-            sql += " WHERE " + "DATE(`" + settings.DATE_FIELD + "`) = date_sub(curdate(),interval 1 day)"
+            if not date:
+                date = 'curdate()'
+            else:
+                date = "'%s'" % date
+            sql += " WHERE " + "DATE(`" + settings.DATE_FIELD + "`) = date_sub(%s,interval 1 day)" % date
         mysql_rows = []
         step = 1000
         i = 0
@@ -74,17 +78,18 @@ class DataUtil(object):
             if len(rows) < step:
                 break
             i += 1
-        if self.mode == 'ON':
-            unique_field = self.unique_field
-            table_name = self.table_name
-            step = 100
-            base_unique_rows = {}
-            for i in range(0, len(mysql_rows), step):
-                query_str = ', '.join([f"{row[unique_field]}" for row in mysql_rows[i: i + step]])
-                query_sql = f"select `{unique_field}` from `{table_name}` where `{unique_field}` in ({query_str})"
-                unique_rows = fixed_sql_query(self.base, query_sql)
-                base_unique_rows.update({row[unique_field]: True for row in unique_rows})
-            mysql_rows = [row for row in mysql_rows if not base_unique_rows.get(row[unique_field])]
+
+        unique_field = self.unique_field
+        table_name = self.table_name
+        step = 100
+        base_unique_rows = {}
+        for i in range(0, len(mysql_rows), step):
+            query_str = ', '.join([f"{row[unique_field]}" for row in mysql_rows[i: i + step]])
+            query_sql = f"select `{unique_field}` from `{table_name}` where `{unique_field}` in ({query_str})"
+            unique_rows = fixed_sql_query(self.base, query_sql)
+            base_unique_rows.update({row[unique_field]: True for row in unique_rows})
+        mysql_rows = [row for row in mysql_rows if not base_unique_rows.get(row[unique_field])]
+
         return self.parse_mysql_rows(mysql_rows)
 
     def parse_mysql_rows(self, mysql_rows):
@@ -164,19 +169,14 @@ def fixed_sql_query(seatable, sql):
         return []
 
 
-def get_mysql_rows(base, mode, table_name, unique_field, username, password, db_name, host, charset):
+def get_mysql_rows(base, mode, table_name, unique_field, username, password, db_name, host, charset, date=None):
     mysql_data = DataUtil(base, mode, table_name, unique_field, username, password, db_name, host, charset)
     try:
-        if mode == 'ALL':
-            if mysql_data.check_base():
-                logger.error(f'base table {table_name} should be empty if mode is ALL')
-                return []
-
         mysql_data.get_mysql_field_info()
         if mysql_to_dtable_dict[mysql_data.field_info[mysql_data.unique_field]] not in ('number', 'text'):
             logger.error('unique field type error')
             return []
-        return mysql_data.get_mysql_data()
+        return mysql_data.get_mysql_data(date=date)
     except Exception as e:
         logger.exception(e)
     finally:
@@ -192,15 +192,18 @@ def sync(api_token,
          password,
          db_name,
          host,
-         charset):
+         charset,
+         date=None):
     try:
         base = Base(settings.BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL)
         base.auth()
         logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
 
-        mysql_rows = get_mysql_rows(base, mode, table_name, unique_field, username, password, db_name, host, charset)
+        mysql_rows = get_mysql_rows(base, mode, table_name, unique_field, username, password, db_name, host, charset, date=date)
         logger.info(f'fetch {len(mysql_rows)} mysql rows')
-        base.batch_append_rows(settings.MYSQL_TABLE_NAME, mysql_rows)
+        step = 1000
+        for i in range(0, len(mysql_rows), step):
+            base.batch_append_rows(settings.MYSQL_TABLE_NAME, mysql_rows[i: i+step])
     except Exception as e:
         logger.exception(e)
         logger.error('sync mysql error: %s', e)
@@ -208,9 +211,17 @@ def sync(api_token,
 
 def main():
     try:
+        if settings.DATE:
+            date = str(datetime.strptime(settings.DATE, '%Y-%m-%d').date())
+        else:
+            date = str(datetime.today().date())
+    except Exception as e:
+        logger.error('date: %s invalid, should be %Y-%m-%%d', settings.DATE)
+        return
+    try:
         sync(settings.BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL, settings.MODE, settings.MYSQL_TABLE_NAME,
              settings.UNIQUE_FIELD, settings.MYSQL_USER, settings.MYSQL_PASSWORD, settings.DB_NAME,
-             settings.MYSQL_HOST, settings.CHARSET)
+             settings.MYSQL_HOST, settings.CHARSET, date=date)
     except Exception as e:
         logger.exception(e)
         logger.error('sync mysql error: %s', e)
