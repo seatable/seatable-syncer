@@ -482,3 +482,8 @@ def sync_jobs():
 def login_out():
     session.clear()
     return redirect(url_for('login'))
+
+
+@app.template_filter('ios_time_formater')
+def ios_time_formater(time_value):
+    return datetime.strftime(datetime.fromisoformat(time_value), '%Y-%m-%d %H:%M:%S') if time_value else time_value

@@ -27,7 +27,7 @@
           <td width="20%">{{job.name}}</td>
           <td width="10%">{{job.job_type}}</td>
           <td width="10%">{{job.is_valid}}</td>
-          <td width="25%">{{job.last_trigger_time}}</td>
+          <td width="25%">{{job.last_trigger_time|ios_time_formater}}</td>
           <td width="10%">{{job.trigger_detail.trigger_type}}</td>
         </tr>
         {% endfor %}
