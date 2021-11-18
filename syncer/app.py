@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_webpack_loader import WebpackLoader
 
 
 db = SQLAlchemy()
@@ -7,6 +8,8 @@ db = SQLAlchemy()
 
 app = Flask(__name__)
 app.config.from_object("config.Config")
+
+webpack_loader = WebpackLoader(app)
 
 db.init_app(app)
 

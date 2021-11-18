@@ -12,4 +12,10 @@
         {% endfor %}
         <button type="submit">submit</button>
     </form>
+    <div id="root"></div>
 {% endblock %} 
+
+{% block scripts %}
+    {{ render_bundle('runtime') | safe }}
+    {{ render_bundle('main') | safe }}
+{% endblock %}
