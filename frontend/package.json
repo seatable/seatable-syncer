@@ -8,10 +8,10 @@
     "reactstrap": "9.0.1"
   },
   "scripts": {
-    "start": "node scripts/start.js",
-    "prebuild": "rm -rf ../static/frontend/*",
+    "_start": "node scripts/start.js",
+    "_prebuild": "rm -rf ../syncer/static/frontend/*",
+    "_postbuild": "cp -r build/static ../syncer/static/frontend",
     "build": "export GENERATE_SOURCEMAP=false && node scripts/build.js",
-    "postbuild": "cp -r build/static ../static/frontend",
     "test": "node scripts/test.js",
     "dev": "node config/server.js"
   },

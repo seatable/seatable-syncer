@@ -12,3 +12,8 @@ log_syncer_settings.py
 sync_settings.py
 
 test-compose.yml
+
+#frontend
+frontend/webpack-stats.dev.json
+frontend/node_modules
+frontend/build

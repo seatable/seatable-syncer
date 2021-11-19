@@ -1,1 +1,20 @@
-{"status":"done","chunks":{"main":[{"name":"static/js/main.chunk.js","path":"/Users/shuntian/seafile/dtable-module/seatable-syncer/frontend/build/static/js/main.chunk.js"}],"runtime":[{"name":"static/js/runtime.js","path":"/Users/shuntian/seafile/dtable-module/seatable-syncer/frontend/build/static/js/runtime.js"}]}}
+{
+  "status": "done",
+  "publicPath": "/",
+  "chunks": {
+    "login": [
+      {
+        "name": "static/js/login.chunk.js",
+        "publicPath": "/static/js/login.chunk.js",
+        "path": "/Users/shuntian/seafile/dtable-module/seatable-syncer/frontend/build/static/js/login.chunk.js"
+      }
+    ],
+    "runtime": [
+      {
+        "name": "static/js/runtime.js",
+        "publicPath": "/static/js/runtime.js",
+        "path": "/Users/shuntian/seafile/dtable-module/seatable-syncer/frontend/build/static/js/runtime.js"
+      }
+    ]
+  }
+}

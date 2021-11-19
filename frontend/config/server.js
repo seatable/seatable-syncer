@@ -21,12 +21,25 @@ const sockHost = process.env.WDS_SOCKET_HOST;
 const sockPath = process.env.WDS_SOCKET_PATH; // default: '/sockjs-node'
 const sockPort = process.env.WDS_SOCKET_PORT;
 
-var Webpack = require('webpack')
+var webpack = require('webpack')
 var WebpackDevServer = require('webpack-dev-server')
 var configFactory = require('./webpack.config')
-var config = configFactory('development');
+const { createCompiler } = require('react-dev-utils/WebpackDevServerUtils');
 
-const compiler = Webpack(config);
+var config = configFactory('development');
+const devSocket = {
+  warnings: warnings =>
+    devServer.sockWrite(devServer.sockets, 'warnings', warnings),
+  errors: errors =>
+    devServer.sockWrite(devServer.sockets, 'errors', errors),
+}; 
+
+const compiler = createCompiler({
+  config,
+  devSocket,
+  webpack,
+});
+
 const devServerOptions = {
   hot: true,
   publicPath: PUBLIC_PATH,
@@ -48,8 +61,8 @@ const devServerOptions = {
 
 console.log('Dev server options:', devServerOptions);
 
-const server = new WebpackDevServer(compiler, devServerOptions);
-server.listen(PORT, HOST, function (err, result) {
+const devServer = new WebpackDevServer(compiler, devServerOptions);
+devServer.listen(PORT, HOST, function (err, result) {
   if (err) {
     console.log(err)
   }

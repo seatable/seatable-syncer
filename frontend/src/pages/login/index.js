@@ -20,7 +20,7 @@ class Login extends React.Component {
           {% endfor %}
         <button type="submit">submit</button>
         </form> */}
-        acdddkkkkddd
+        acdddkkkkddd你好的, 我是小强你好, 好的, 你是谁
       </div>
     );
   }

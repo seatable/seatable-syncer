@@ -214,6 +214,7 @@ module.exports = function (webpackEnv) {
       // It requires a trailing slash, or the file assets will get an incorrect path.
       // We inferred the "public path" (such as / or /my-project) from homepage.
       // publicPath: paths.publicUrlOrPath,
+      publicPath: isEnvDevelopment ? PUBLIC_PATH : '/',
       // Point sourcemap entries to original disk location (format as URL on Windows)
       devtoolModuleFilenameTemplate: isEnvProduction
         ? info =>
@@ -687,13 +688,8 @@ module.exports = function (webpackEnv) {
           },
         }),
       isEnvDevelopment ? 
-        new webpackBundleTracker({
-          publicPath: PUBLIC_PATH,
-          filename: './webpack-stats.dev.json'
-        }) :
-        new webpackBundleTracker({
-          filename: './webpack-stats.pro.json'
-        }),
+        new webpackBundleTracker({filename: './webpack-stats.dev.json'}) :
+        new webpackBundleTracker({filename: './webpack-stats.pro.json'})
     ].filter(Boolean),
     // Some libraries import Node modules but don't use them in the browser.
     // Tell webpack to provide empty mocks for them so importing them works.
