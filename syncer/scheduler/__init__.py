@@ -63,14 +63,13 @@ class SchedulerJobsManager:
         logger.info('add job: %s to scheduler...', db_job)
         trigger = CronTrigger(**json.loads(db_job.trigger_detail))
         if db_job.job_type == JOB_TYPE_EMAIL_SYNC:
-            detail = json.loads(db_job.detail)
+            # detail = json.loads(db_job.detail)
             self.scheduler.add_job(
                 email_sync_job_func,
                 trigger=trigger,
                 args=(
-                    db_job.api_token,
-                    Config.DTABLE_WEB_SERVICE_URL,
-                    detail
+                    db_job.id,
+                    Config.DTABLE_WEB_SERVICE_URL
                 ),
                 id=db_job.job_id
             )

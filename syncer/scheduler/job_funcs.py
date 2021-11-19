@@ -1,10 +1,13 @@
+import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from seatable_api.main import SeaTableAPI
 
+from app import app
 from email_sync.email_syncer import sync
+from models.sync_models import SyncJobs
 from utils import check_api_token_and_resources, check_imap_account
 from utils.exceptions import SchedulerJobInvalidException
 
@@ -12,10 +15,18 @@ logger = logging.getLogger(__name__)
 
 
 def email_sync_job_func(
-    api_token,
-    dtable_web_service_url,
-    detail
+    db_job_id,
+    dtable_web_service_url
 ):
+    with app.app_context():
+        db_job = SyncJobs.query.filter(SyncJobs.id == db_job_id).first()
+    if not db_job:
+        raise SchedulerJobInvalidException('email sync db_job: %s not found' % db_job_id)
+    api_token = db_job.api_token
+    try:
+        detail = json.loads(db_job.detail)
+    except Exception as e:
+        raise SchedulerJobInvalidException('email sync db_job: %s detail: %s invalid error: %s' % (db_job, db_job.detail, e))
     # check seatable api token
     error_msg = check_api_token_and_resources(api_token, dtable_web_service_url, job_type='email-sync', detail=detail, check_imap=False)
     if error_msg:
@@ -56,9 +67,16 @@ def email_sync_job_func(
     if not (email_table_name and link_table_name):
         raise SchedulerJobInvalidException('email_table: %s or link_table: %s not exists' % (email_table_id, link_table_id))
 
+    mode = 'ON'
+    date_str = str(datetime.today().date())
+    last_day_str = str((datetime.today() - timedelta(days=1)).date())
+    if str(db_job.last_trigger_time.date()) == last_day_str:
+        mode = 'SINCE'
+        date_str = last_day_str
+
     # sync
     sync(
-        str(datetime.today().date()),
+        date_str,
         api_token,
         dtable_web_service_url,
         email_table_name,
@@ -67,5 +85,5 @@ def email_sync_job_func(
         email_user,
         email_password,
         imap=imap,
-        mode='ON'
+        mode=mode
     )
