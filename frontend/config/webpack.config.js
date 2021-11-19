@@ -171,7 +171,7 @@ module.exports = function (webpackEnv) {
     // These are the "entry points" to our application.
     // This means they will be the "root" imports that are included in JS bundle.
     entry: {
-      login: isEnvDevelopment && !shouldUseReactRefresh
+      app: isEnvDevelopment && !shouldUseReactRefresh
       ? [
           // Include an alternative client for WebpackDevServer. A client's job is to
           // connect to WebpackDevServer by a socket and get notified about changes.
@@ -189,12 +189,12 @@ module.exports = function (webpackEnv) {
           // the webpack plugin takes care of injecting the dev client for us.
           webpackDevClientEntry,
           // Finally, this is your app's code:
-          `${paths.appSrc}/login.js`,
+          `${paths.appSrc}/index.js`,
           // We include the app code last so that if there is a runtime error during
           // initialization, it doesn't blow up the WebpackDevServer client, and
           // changing JS code would still trigger a refresh.
         ]
-      : `${paths.appSrc}/login.js`,
+      : `${paths.appSrc}/index.js`,
     },
     output: {
       // The build folder.
@@ -338,6 +338,7 @@ module.exports = function (webpackEnv) {
         .map(ext => `.${ext}`)
         .filter(ext => useTypeScript || !ext.includes('ts')),
       alias: {
+        '@': path.resolve('src'), // 这样配置后 @ 可以指向 src 目录
         // Support React Native Web
         // https://www.smashingmagazine.com/2016/08/a-glimpse-into-the-future-with-react-native-for-web/
         'react-native': 'react-native-web',

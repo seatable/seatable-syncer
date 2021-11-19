@@ -4,13 +4,6 @@
 process.env.NODE_ENV = 'development';
 process.env.BABEL_ENV = 'development';
 
-// Makes the script crash on unhandled rejections instead of silently
-// ignoring them. In the future, promise rejections that are not handled will
-// terminate the Node.js process with a non-zero exit code.
-process.on('unhandledRejection', err => {
-  throw err;
-});
-
 // Ensure environment variables are read.
 require('../config/env');
 
@@ -37,6 +30,7 @@ const devSocket = {
 const compiler = createCompiler({
   config,
   devSocket,
+  urls: {},
   webpack,
 });
 
@@ -69,3 +63,17 @@ devServer.listen(PORT, HOST, function (err, result) {
 
   console.log(`Listening at ${HOST}:${PORT}`)
 })
+
+// Makes the script crash on unhandled rejections instead of silently
+// ignoring them. In the future, promise rejections that are not handled will
+// terminate the Node.js process with a non-zero exit code.
+process.on('unhandledRejection', err => {
+  throw err;
+});
+
+['SIGINT', 'SIGTERM'].forEach(function (sig) {
+  process.on(sig, function () {
+    devServer.close();
+    process.exit();
+  });
+});
