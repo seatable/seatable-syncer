@@ -171,7 +171,7 @@ module.exports = function (webpackEnv) {
     // These are the "entry points" to our application.
     // This means they will be the "root" imports that are included in JS bundle.
     entry: {
-      main: isEnvDevelopment && !shouldUseReactRefresh
+      login: isEnvDevelopment && !shouldUseReactRefresh
       ? [
           // Include an alternative client for WebpackDevServer. A client's job is to
           // connect to WebpackDevServer by a socket and get notified about changes.
@@ -189,12 +189,12 @@ module.exports = function (webpackEnv) {
           // the webpack plugin takes care of injecting the dev client for us.
           webpackDevClientEntry,
           // Finally, this is your app's code:
-          paths.appIndexJs,
+          `${paths.appSrc}/login.js`,
           // We include the app code last so that if there is a runtime error during
           // initialization, it doesn't blow up the WebpackDevServer client, and
           // changing JS code would still trigger a refresh.
         ]
-      : paths.appIndexJs,
+      : `${paths.appSrc}/login.js`,
     },
     output: {
       // The build folder.

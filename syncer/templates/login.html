@@ -1,21 +1,13 @@
 {% extends "base.html" %} 
 {% block title %}login{% endblock %}
-{% block head %} 
-    <style type="text/css"></style>
+{% block head %}
+    <link as=style href=/static/css/seatable-ui.css>
 {% endblock %}
 {% block content %}
-    <form action="{{ url_for('login')}}" method="post">
-        账号：{{ form.username() }}<label>{{ form.username.errors[0] }}</label><br/>
-        密码：{{ form.password() }}<label>{{ form.hidden_tag() }}</label><br/>
-        {% for msg in form.password.errors %}
-        <div style="color:red" >{{msg}}</div>
-        {% endfor %}
-        <button type="submit">submit</button>
-    </form>
     <div id="root"></div>
 {% endblock %} 
 
 {% block scripts %}
     {{ render_bundle('runtime') | safe }}
-    {{ render_bundle('main') | safe }}
+    {{ render_bundle('login') | safe }}
 {% endblock %}
