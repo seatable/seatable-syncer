@@ -3,6 +3,8 @@ import logging
 import time
 from datetime import datetime, timedelta
 
+import pytz
+from tzlocal import get_localzone  # tzlocal is depend by apscheduler
 from seatable_api.main import SeaTableAPI
 
 from app import app
@@ -70,7 +72,8 @@ def email_sync_job_func(
     mode = 'ON'
     date_str = str(datetime.today().date())
     last_day_str = str((datetime.today() - timedelta(days=1)).date())
-    if str(db_job.last_trigger_time.date()) == last_day_str:
+    # last_trigger_time in database is UTC time, so need to convert it to localzone datetime
+    if str(pytz.utc.localize(db_job.last_trigger_time).astimezone(get_localzone()).date()) == last_day_str:
         mode = 'SINCE'
         date_str = last_day_str
 
