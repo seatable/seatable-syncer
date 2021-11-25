@@ -74,6 +74,9 @@ def sync(mode, table_name, username, password, db_name, host, charset, api_token
     for i in range(0, len(mysql_rows), step):
         base.batch_append_rows(table_name, mysql_rows[i: i + step])
 
+    conn.close()
+    cursor.close()
+
 
 def main():
     date = ''
