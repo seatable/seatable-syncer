@@ -67,7 +67,7 @@ class DataUtil(object):
         step = 100
         base_unique_rows = {}
         for i in range(0, len(mysql_rows), step):
-            query_str = ', '.join([f"{row[unique_field]}" for row in mysql_rows[i: i + step]])
+            query_str = ', '.join([f"'{row[unique_field]}'" for row in mysql_rows[i: i + step]])
             query_sql = f"select `{unique_field}` from `{table_name}` where `{unique_field}` in ({query_str})"
             unique_rows = fixed_sql_query(self.base, query_sql)
             base_unique_rows.update({row[unique_field]: True for row in unique_rows})
