@@ -35,28 +35,11 @@ class DataUtil(object):
         self.field_info = None
         self.unique_field = unique_field
 
-    def now(self):
-        return str(datetime.now())
-
     def get_mysql_field_info(self):
         sql = "DESC " + self.table_name
         self.cursor.execute(sql)
         field_info = self.cursor.fetchall()
         self.field_info = {field['Field']: field['Type'].split('(')[0].upper() for field in field_info}
-
-    def get_base_unique_rows(self):
-        result = fixed_sql_query(self.base, f"select count(*) from `{self.table_name}`")[0]
-        total_count = result['COUNT(*)']
-        unique_rows = {}
-        step = 100
-        for i in range(0, total_count, step):
-            rows = fixed_sql_query(self.base, f"select {self.unique_field} from `{self.table_name}` limit {i*step},{step}")
-            unique_rows.update({row[self.unique_field]: True for row in rows})
-        return unique_rows
-
-    def check_base(self):
-        base_count_info = fixed_sql_query(self.base, f"select count(*) as base_count from `{self.table_name}`")
-        return True if base_count_info[0].get('base_count') else False
 
     def get_mysql_data(self, date=None):
         sql = "SELECT " + ','.join(["`%s`" % key for key in self.field_info.keys()]) + " FROM " + self.table_name
@@ -216,7 +199,7 @@ def main():
         else:
             date = str(datetime.today().date())
     except Exception as e:
-        logger.error('date: %s invalid, should be %Y-%m-%%d', settings.DATE)
+        logger.error('date: %s invalid, should be %%Y-%%m-%%d', settings.DATE)
         return
     try:
         sync(settings.BASE_API_TOKEN, settings.DTABLE_WEB_SERVICE_URL, settings.MODE, settings.MYSQL_TABLE_NAME,
