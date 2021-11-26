@@ -15,13 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_dtables(base, mode, cursor, table_name, date=None):
-    sql = "SELECT uuid,name,creator,created_at,workspace_id FROM dtables"
+    sql = "SELECT dt.uuid,dt.name,pp.nickname AS creator,dt.created_at,dt.workspace_id,dt.deleted" \
+          " FROM dtables dt " \
+          "INNER JOIN profile_profile pp ON dt.creator=pp.`user`"
     if mode == 'ON':
         if not date:
             date = 'curdate()'
         else:
             date = "'%s'" % date
-        sql += " WHERE DATE(created_at) = DATE_SUB(%s,interval 1 day)" % date
+        sql += " WHERE DATE(dt.created_at) = DATE_SUB(%s,interval 1 day)" % date
     mysql_rows = []
     step = 1000
     i = 0
