@@ -25,15 +25,17 @@ def get_dtables(base, mode, cursor, table_name, date=None):
     mysql_rows = []
     step = 1000
     i = 0
+    email_nike_map = dict()
     while True:
         query_sql = sql + f" LIMIT {i * step},{step}"
         cursor.execute(query_sql)
         rows = cursor.fetchall()
-        user_list = set([row['creator'] for row in rows])
+        user_list = list(set([row['creator'] for row in rows]))
+        if not user_list:
+            break
         profile_sql = "SELECT `user`, `nickname` FROM `profile_profile` WHERE `user` IN %s"
         cursor.execute(profile_sql, args=(user_list,))
         users_profile = cursor.fetchall()
-        email_nike_map = dict()
         for user_profile in users_profile:
             if user_profile.get('nickname'):
                 email_nike_map[user_profile.get('user')] = user_profile.get('nickname')
