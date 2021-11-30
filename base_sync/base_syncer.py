@@ -15,15 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_dtables(base, mode, cursor, table_name, date=None):
-    sql = "SELECT dt.uuid,dt.name,pp.nickname AS creator,dt.created_at,dt.workspace_id,dt.deleted" \
-          " FROM dtables dt " \
-          "INNER JOIN profile_profile pp ON dt.creator=pp.`user`"
+    sql = "SELECT uuid,name,creator,created_at,workspace_id,deleted FROM dtables"
     if mode == 'ON':
         if not date:
             date = 'curdate()'
         else:
             date = "'%s'" % date
-        sql += " WHERE DATE(dt.created_at) = DATE_SUB(%s,interval 1 day)" % date
+        sql += " WHERE DATE(created_at) = DATE_SUB(%s,interval 1 day)" % date
     mysql_rows = []
     step = 1000
     i = 0
@@ -31,6 +29,19 @@ def get_dtables(base, mode, cursor, table_name, date=None):
         query_sql = sql + f" LIMIT {i * step},{step}"
         cursor.execute(query_sql)
         rows = cursor.fetchall()
+        user_list = set([row['creator'] for row in rows])
+        profile_sql = "SELECT `user`, `nickname` FROM `profile_profile` WHERE `user` IN %s"
+        cursor.execute(profile_sql, args=(user_list,))
+        users_profile = cursor.fetchall()
+        email_nike_map = dict()
+        for user_profile in users_profile:
+            if user_profile.get('nickname'):
+                email_nike_map[user_profile.get('user')] = user_profile.get('nickname')
+            else:
+                email_nike_map[user_profile.get('user')] = user_profile.get('user').split('@')[0]
+        for row in rows:
+            row['creator'] = email_nike_map.get(row['creator'])
+
         time.sleep(0.5)
         mysql_rows += rows
         if len(rows) < step:
