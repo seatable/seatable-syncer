@@ -10,8 +10,8 @@
   },
   "scripts": {
     "_start": "node scripts/start.js",
-    "prebuild": "rm -rf ../syncer/static/frontend/*",
-    "postbuild": "cp -r build/static ../syncer/static/frontend",
+    "prebuild": "rm -rf ../static/frontend/*",
+    "postbuild": "cp -r build/static ../static/frontend",
     "build": "export GENERATE_SOURCEMAP=false && node scripts/build.js",
     "test": "node scripts/test.js",
     "dev": "node config/server.js"
