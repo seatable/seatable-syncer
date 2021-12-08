@@ -7,7 +7,9 @@
     window.app = {
       config : {
         message: '{{ message }}',
+        {% if syncer_jobs | length > 0 %}
         syncerJobs: {{ syncer_jobs | safe }}
+        {% endif %}
       }
     };
   </script>
@@ -15,4 +17,4 @@
 {% block scripts %}
      {{ render_bundle('runtime') | safe }}
      {{ render_bundle('app') | safe }}
- {% endblock %} 
+{% endblock %}

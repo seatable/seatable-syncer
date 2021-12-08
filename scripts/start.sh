@@ -28,8 +28,11 @@ fi
 export LOG_DIR='/shared/logs'
 
 
+cd /data/frontend
+npm install --no-audit
+npm run build
+
 cd /data/syncer
-ls -l
 python main.py >> /shared/logs/gevent.log 2>&1 &
 
 
