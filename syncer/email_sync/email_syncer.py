@@ -11,6 +11,9 @@ from seatable_api import SeaTableAPI
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
+from email.utils import parseaddr, parsedate_to_datetime
+from tzlocal import get_localzone
+
 
 logging.basicConfig(
     filename='email_sync.log',
@@ -48,46 +51,22 @@ class ImapMail(object):
             value = value.decode(charset)
         return value
 
-    @staticmethod
-    def guess_charset(msg):
-        charset = msg.get_charset()
-        if charset is None:
-            content_type = msg.get('Content-Type', '').lower()
-            pos = content_type.find('charset=')
-            if pos >= 0:
-                charset = content_type[pos + 8:].strip()
-        return charset
-
-    @staticmethod
-    def get_reply_to(msg):
-        value = msg.get('In-Reply-To', '').strip().lower()[1:-1]
-        return value
-
     def get_content(self, msg):
         content = ''
         for part in msg.walk():
-            if part.is_multipart():
-                continue
             content_type = part.get_content_type()
-            charset = self.guess_charset(part)
-            # if attachment continue
-            if part.get_filename() != None:
-                continue
-            email_content_type = ''
             if content_type == 'text/plain':
-                email_content_type = 'text'
-            elif content_type == 'text/html':
-                continue
-            if charset:
-                try:
-                    content = part.get_payload(decode=True).decode(charset)
-                except LookupError:
+                charset = part.get_content_charset()
+                if charset:
+                    try:
+                        content = part.get_payload(decode=True).decode(charset)
+                    except LookupError:
+                        content = part.get_payload()
+                        logger.info('unknown encoding: %s' % charset)
+                    except Exception as e:
+                        logger.error(e)
+                else:
                     content = part.get_payload()
-                    logger.info('unknown encoding: %s' % charset)
-                except Exception as e:
-                    logger.error(e)
-            if email_content_type == '':
-                continue
         return content
 
     def get_attachments(self, msg):
@@ -100,6 +79,23 @@ class ImapMail(object):
                 file_list.append({'file_name': filename, 'file_data': data})
         return file_list
 
+    def get_email_header(self, msg):
+        header_info = {}
+        for header in ['From', 'To', 'CC', 'Subject', 'Message-ID', 'In-Reply-To', 'Date']:
+            value = msg.get(header, '')
+            if value:
+                if header == 'Subject':
+                    value = self.decode_str(value)
+                elif header == 'Date':
+                    value = parsedate_to_datetime(value).astimezone(get_localzone()).isoformat().replace('T', ' ')[:-6]
+                elif header in ['From', 'To', 'CC']:
+                    value = ','.join([parseaddr(val)[1] for val in value.split(',')])
+                elif header in ['Message-ID', 'In-Reply-To']:
+                    # remove '<' and '>'
+                    value = value.strip().lower()[1:-1]
+            header_info[header] = value
+
+        return header_info
 
     def get_email_results(self, send_date, mode='ON'):
         td = timedelta(days=1)
@@ -116,45 +112,34 @@ class ImapMail(object):
 
     def gen_email_dict(self, mail, send_date, mode):
         email_dict = {}
-        data = self.server.fetch(mail, ['ENVELOPE'])
-        envelope = data[mail][b'ENVELOPE']
-        send_time = envelope.date
-        sender = envelope.sender
-        send_to = envelope.to
-        cc = envelope.cc
-        if not sender:
-            logger.warning('account: %s message: %s no sender!', self.user, mail)
-        if not send_to:
-            logger.warning('account: %s message: %s no recipient!', self.user, mail)
-        logger.debug('envelope: %s', envelope)
-        logger.debug('send_time: %s', send_time)
-        logger.debug('sender: %s', sender)
-        logger.debug('send_to: %s', send_to)
-        logger.debug('cc: %s', cc)
-        message_id = envelope.message_id.decode() if envelope.message_id else ''
-        email_dict['Subject'] = envelope.subject.decode() if envelope.subject else ''
+        msg_dict = self.server.fetch(mail, ['BODY[]'])
+        mail_body = msg_dict[mail][b'BODY[]']
+        msg = Parser().parsestr(mail_body.decode())
+
+        header_info = self.get_email_header(msg)
+        send_time = header_info.get('Date')
+        send_time = datetime.strptime(send_time, '%Y-%m-%d %H:%M:%S')
+
         if mode == 'ON' and send_time.date() != send_date:
             return
         if mode == 'SINCE' and send_time.date() < send_date:
             return
-        parse_address = lambda x: (x.mailbox.decode() if x.mailbox else '') + '@' + (x.host.decode() if x.host else '')
-        email_dict['From'] = parse_address(sender[0]) if sender else ''
-        to_address = ','.join([parse_address(to) for to in send_to]) if send_to else ''
-        cc_address = ','.join([parse_address(to) for to in cc]) if cc else ''
-        msg_dict = self.server.fetch(mail, ['BODY[]'])
-        mail_body = msg_dict[mail][b'BODY[]']
-        msg = Parser().parsestr(mail_body.decode())
-        content = self.get_content(msg)
 
-        in_reply_to = self.get_reply_to(msg)
-        email_dict['Attachment'] = self.get_attachments(msg)
-        email_dict['To'] = to_address.rstrip(',')
-        email_dict['Reply to Message ID'] = in_reply_to
-        email_dict['UID'] = str(mail)
-        email_dict['Message ID'] = message_id.strip().lower()[1:-1]
-        email_dict['cc'] = cc_address.rstrip(',')
+        if not header_info['From']:
+            logger.warning('account: %s message: %s no sender!', self.user, mail)
+        if not header_info['To']:
+            logger.warning('account: %s message: %s no recipient!', self.user, mail)
+        content = self.get_content(msg)
         email_dict['Content'] = content
-        email_dict['Date'] = datetime.strftime(send_time, '%Y-%m-%d %H:%M:%S')
+        email_dict['Attachment'] = self.get_attachments(msg)
+        email_dict['UID'] = str(mail)
+        email_dict['From'] = header_info.get('From')
+        email_dict['To'] = header_info.get('To')
+        email_dict['Subject'] = header_info.get('Subject')
+        email_dict['Message ID'] = header_info.get('Message-ID')
+        email_dict['Reply to Message ID'] = header_info.get('In-Reply-To')
+        email_dict['cc'] = header_info.get('CC')
+        email_dict['Date'] = header_info.get('Date')
 
         return email_dict
 
@@ -241,7 +226,7 @@ def update_email_thread_ids(seatable, email_table_name, send_date, email_list):
     """
     # get email rows in last 30 days and generate message-thread dict {`Message ID`: `Thread ID`}
     last_month_day = (str_2_datetime(send_date) - timedelta(days=30)).strftime('%Y-%m-%d')
-    email_rows = query_table_rows(seatable, email_table_name, 
+    email_rows = query_table_rows(seatable, email_table_name,
                                   fields='`Message ID`, `Thread ID`',
                                   conditions=f"Date>='{last_month_day}'")
     message2thread = {email['Message ID']: email['Thread ID'] for email in email_rows}
@@ -326,6 +311,7 @@ def get_thread_email_ids(thread_row_emails):
         return []
     return [email['row_id'] for email in thread_row_emails]
 
+
 def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, email_list, to_be_updated_thread_dict):
     """
     update thread table
@@ -374,6 +360,7 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
     email_table_id = table_info[email_table_name]
 
     seatable.batch_update_links(link_id, link_table_id, email_table_id, row_id_list, other_rows_ids_map)
+
 
 def update_emails(seatable, email_table_name, email_list):
     """
