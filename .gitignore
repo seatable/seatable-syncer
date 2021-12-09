@@ -8,6 +8,7 @@ __pycache__
 local_settings.py
 email_syncer_settings.py
 log_syncer_settings.py
+base_syncer_settings.py
 
 sync_settings.py
 
