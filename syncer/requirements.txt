@@ -8,4 +8,5 @@ pytz
 pymysql
 gevent
 tzlocal
-
+flask-webpack-loader
+Flask-WTF

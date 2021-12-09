@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from apscheduler.triggers.cron import CronTrigger
-from flask import current_app as app, request
+from flask import current_app as app, request, render_template, session, redirect, url_for
 from flask_cors import cross_origin
 from seatable_api import SeaTableAPI
 from seatable_api.constants import ColumnTypes
@@ -15,6 +15,7 @@ from models.sync_models import SyncJobs
 from scheduler import scheduler_jobs_manager
 from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, utc_datetime_to_isoformat_timestr, check_imap_account
 from utils.constants import JOB_TYPE_EMAIL_SYNC
+from form.login_form import LoginForm
 
 logger = logging.getLogger(__name__)
 
@@ -445,3 +446,44 @@ def run_sync_job_api(job_id):
         'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
         'job_id': db_job.id
     }, 200
+
+
+@app.route('/account/login/', methods=['POST', 'GET'])
+def login():
+    form = LoginForm()
+    if not form.validate_on_submit():
+        return render_template('login.html', form=form)
+
+    username = form.username.data
+    password = form.password.data
+    if username == Config.ADMIN_SYNCER_USER and password == Config.ADMIN_SYNCER_PASSWORD:
+        session['user'] = username
+        return redirect(url_for('sync_jobs'))
+    form.password.errors.append('password or username error')
+    return render_template('login.html', form=form)
+
+
+@app.route("/admin/sync-jobs/")
+def sync_jobs():
+    if session.get("user"):
+        session['user'] = session.get("user")
+        jobs = SyncJobs.query.filter().all()
+        if not jobs:
+            return render_template('sync_jobs.html', message='job not found.')
+        dtable_sync_jobs_list = []
+        for job in jobs:
+            dtable_sync_jobs_list.append(job.to_dict())
+        sync_jobs = dtable_sync_jobs_list
+        return render_template('sync_jobs.html', syncer_jobs=sync_jobs)
+    return redirect(url_for('login'))
+
+
+@app.route('/login_out/', methods=['GET', 'POST'])
+def login_out():
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.template_filter('ios_time_formater')
+def ios_time_formater(time_value):
+    return datetime.strftime(datetime.fromisoformat(time_value), '%Y-%m-%d %H:%M:%S') if time_value else time_value

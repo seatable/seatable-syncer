@@ -40,5 +40,5 @@ class SyncJobs(db.Model):
             'job_type': self.job_type,
             'detail': json.loads(self.detail),
             'last_trigger_time': utc_datetime_to_isoformat_timestr(self.last_trigger_time),
-            'is_valid': self.is_valid
+            'is_valid': 1 if self.is_valid else 0
         }

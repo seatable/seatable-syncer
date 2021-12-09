@@ -1,8 +1,10 @@
 import os
 import sys
 from urllib.parse import quote_plus
+from datetime import timedelta
 
 basedir = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 
 SECRET_KEY = '__SECRET_KEY__'
 SQLALCHEMY_DATABASE_URI = 'sqlite:////tmp/test.db'
@@ -18,6 +20,18 @@ MYSQL_DB = 'email_sync_jobs'
 
 
 DTABLE_WEB_SERVICE_URL = 'http://127.0.0.1:8000'
+
+ADMIN_SYNCER_USER = ''
+ADMIN_SYNCER_PASSWORD = ''
+
+WEBPACK_LOADER = {
+    'STATIC_URL': 'static',
+    'BUNDLE_DIR_NAME': os.path.join('/static', 'frontend/'),
+    'STATS_FILE': os.path.join(PROJECT_ROOT, 'frontend/webpack-stats.pro.json'),
+    'POLL_INTERVAL': 0.1,
+    'TIMEOUT': None,
+    'IGNORES': []
+}
 
 
 try:
@@ -49,6 +63,7 @@ class Config:
     # General Config
     SECRET_KEY = SECRET_KEY
     DTABLE_WEB_SERVICE_URL = DTABLE_WEB_SERVICE_URL
+    PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)
 
     # Database
     SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI
@@ -58,3 +73,9 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_recycle': SQLALCHEMY_POOL_RECYCLE,
     }
+    # Admin info
+    ADMIN_SYNCER_USER = ADMIN_SYNCER_USER
+    ADMIN_SYNCER_PASSWORD = ADMIN_SYNCER_PASSWORD
+    
+    # webpack
+    WEBPACK_LOADER = WEBPACK_LOADER
