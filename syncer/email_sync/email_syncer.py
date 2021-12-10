@@ -63,6 +63,9 @@ class ImapMail(object):
                     except LookupError:
                         content = part.get_payload()
                         logger.info('unknown encoding: %s' % charset)
+                    except UnicodeDecodeError:
+                        content = part.get_payload()
+                        logger.info('%s can\'t decode unicode' % charset)
                     except Exception as e:
                         logger.error(e)
                 else:
