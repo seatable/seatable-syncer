@@ -11,7 +11,7 @@ from seatable_api import SeaTableAPI
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
-from email.utils import parseaddr, parsedate_to_datetime
+from email.utils import parseaddr, parsedate_to_datetime, decode_rfc2231, decode_params
 from tzlocal import get_localzone
 
 
@@ -54,6 +54,12 @@ class ImapMail(object):
     def get_content(self, msg):
         content = ''
         for part in msg.walk():
+            if part.is_multipart():
+                continue
+            # if attachment continue
+            if part.get_filename() is not None:
+                continue
+
             content_type = part.get_content_type()
             if content_type == 'text/plain':
                 charset = part.get_content_charset()
