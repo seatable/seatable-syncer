@@ -11,7 +11,7 @@ from seatable_api import SeaTableAPI
 from imapclient import IMAPClient
 from email.parser import Parser
 from email.header import decode_header
-from email.utils import parseaddr, parsedate_to_datetime, decode_rfc2231, decode_params
+from email.utils import parseaddr, parsedate_to_datetime
 from tzlocal import get_localzone
 
 
