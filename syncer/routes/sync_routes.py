@@ -104,8 +104,7 @@ def sync_jobs_api(dtable_uuid):
                 return {'error_msg': error_msg}, 400
 
             try:
-                email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id,
-                                                                                           link_table_id, lang=lang)
+                email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
             except Exception as e:
                 logger.exception(e)
                 logger.error('check email sync tables error: %s', e)
@@ -119,8 +118,7 @@ def sync_jobs_api(dtable_uuid):
                 'link_table_id': link_table.get('_id')
             })
 
-        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid,
-                                                  job_type=job_type, detail=detail)
+        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
         if error_msg:
             return {'error_msg': error_msg}, 400
 
@@ -199,8 +197,7 @@ def sync_job_api(dtable_uuid, job_id):
             return {'error_msg': 'detail invalid.'}, 400
 
         try:
-            job = SyncJobs.query.filter(SyncJobs.id == job_id,
-                                        SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
+            job = SyncJobs.query.filter(SyncJobs.id == job_id, SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
         except Exception as e:
             logger.error('query job: %s error: %s', job_id, e)
             return {'error_msg': 'Internal Server Error.'}, 500
@@ -230,8 +227,7 @@ def sync_job_api(dtable_uuid, job_id):
                     return {'error_msg': error_msg}, 400
 
                 try:
-                    email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id,
-                                                                                               link_table_id, lang=lang)
+                    email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
                 except Exception as e:
                     logger.exception(e)
                     logger.error('update job check email sync tables error: %s', e)
@@ -271,8 +267,7 @@ def sync_job_api(dtable_uuid, job_id):
 
     if request.method == 'DELETE':
         try:
-            job = SyncJobs.query.filter(SyncJobs.id == job_id,
-                                        SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
+            job = SyncJobs.query.filter(SyncJobs.id == job_id, SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
         except Exception as e:
             logger.error('get job: %s error %s', job_id, e)
             return {'error_msg': 'Internal Server Error.'}, 500
@@ -359,15 +354,14 @@ def add_sync_tables_api():
         seatable.rename_column(email_table_name, link_table_name, 'Threads')
     except Exception as e:
         logger.exception(e)
-        logger.error(
-            'init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s',
-            api_token, Config.DTABLE_WEB_SERVICE_URL, email_table_name, link_table_name, lang, e)
+        logger.error('init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s',
+                     api_token, Config.DTABLE_WEB_SERVICE_URL, email_table_name, link_table_name, lang, e)
         return {'error_msg': 'Internal Server Error.'}, 500
 
     return {
-               'email_table_name': email_table_name,
-               'link_table_name': link_table_name,
-           }, 200
+        'email_table_name': email_table_name,
+        'link_table_name': link_table_name,
+    }, 200
 
 
 @app.route('/api/v1/sync-jobs/<job_id>/run/', methods=['POST'])
@@ -437,8 +431,7 @@ def run_sync_job_api(job_id):
         except Exception as e:
             logger.exception(e)
             logger.error('sync emails imap_server: %s, email_user: %s, dtable_web_service_url: %s, email table: %s, \
-                link table: %s, send_date: %s, mode: %s error: %s', imap_server, email_user, dtable_web_service_url,
-                         email_table_name, link_table_name, send_date_str, mode, e)
+                link table: %s, send_date: %s, mode: %s error: %s', imap_server, email_user, dtable_web_service_url, email_table_name, link_table_name, send_date_str, mode, e)
             return {'error_msg': 'Internal Server Error.'}, 500
 
         last_trigger_time = datetime.utcnow()
@@ -451,10 +444,10 @@ def run_sync_job_api(job_id):
             logger.error('update job: %s last trigger time error: %s', db_job, e)
 
     return {
-               'success': True,
-               'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
-               'job_id': db_job.id
-           }, 200
+        'success': True,
+        'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
+        'job_id': db_job.id
+    }, 200
 
 
 @app.route('/account/login/', methods=['POST', 'GET'])
