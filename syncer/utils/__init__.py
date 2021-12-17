@@ -13,9 +13,9 @@ from tzlocal import get_localzone
 from config import basedir, Config
 from email_sync.email_syncer import ImapMail
 from utils.constants import JOB_TYPE_EMAIL_SYNC
+import pymysql
 
 logger = logging.getLogger(__name__)
-
 
 email_sync_tables_file = os.path.join(basedir, 'email_sync', 'tables.json')
 
@@ -43,7 +43,7 @@ def get_non_duplicated_str(existed_strs, target_str):
     return '%s%s' % (target_str, nos[-1] + 1)
 
 
-def create_table(seatable: SeaTableAPI, table_name, lang='en', required_columns: list=None):
+def create_table(seatable: SeaTableAPI, table_name, lang='en', required_columns: list = None):
     """
     create table named table_name
 
@@ -54,7 +54,8 @@ def create_table(seatable: SeaTableAPI, table_name, lang='en', required_columns:
     return table -> dict
     """
     metadata = seatable.get_metadata()
-    fake_duplicated_table_names = [table.get('name') for table in metadata.get('tables') if table.get('name').startswith(table_name)]
+    fake_duplicated_table_names = [table.get('name') for table in metadata.get('tables') if
+                                   table.get('name').startswith(table_name)]
     table_name = get_non_duplicated_str(fake_duplicated_table_names, table_name)
     columns = None
     if required_columns and isinstance(required_columns, list):
@@ -186,7 +187,8 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
                 return new_email_table
             if col.get('type') != ColumnTypes.LINK.value:
                 continue
-            if col['data'].get('table_id') != link_table.get('_id') or col['data'].get('other_table_id') != email_table.get('_id'):
+            if col['data'].get('table_id') != link_table.get('_id') or col['data'].get(
+                    'other_table_id') != email_table.get('_id'):
                 continue
             target_column = col
             target_index = index
@@ -196,7 +198,8 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
 
     if not email_table_id and not link_table_id:
         # create email table
-        email_table = create_table(seatable, 'Emails', lang=lang, required_columns=email_sync_tables_dict['email_table'])
+        email_table = create_table(seatable, 'Emails', lang=lang,
+                                   required_columns=email_sync_tables_dict['email_table'])
         # create link table
         link_table = create_table(seatable, 'Threads', lang=lang, required_columns=email_sync_tables_dict['link_table'])
         # create link column between both tables
@@ -215,7 +218,8 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         # create link table
         link_table = create_table(seatable, 'Threads', lang=lang, required_columns=email_sync_tables_dict['link_table'])
         # create email table columns
-        email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+        email_table, error_msg = check_table_columns(seatable, email_table.get('_id'),
+                                                     email_sync_tables_dict['email_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         # create link column between both tables
@@ -238,9 +242,11 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         if error_msg:
             return None, None, {'error_msg': error_msg}, 404
         # create email table
-        email_table = create_table(seatable, 'Emails', lang=lang, required_columns=email_sync_tables_dict['email_table'])
+        email_table = create_table(seatable, 'Emails', lang=lang,
+                                   required_columns=email_sync_tables_dict['email_table'])
         # create link table columns
-        link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+        link_table, error_msg = check_table_columns(seatable, link_table.get('_id'),
+                                                    email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         # create link column between both tables
@@ -268,15 +274,18 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
             if col.get('type') != ColumnTypes.LINK.value:
                 return None, None, {'error_msg': 'Column `Emails` exists.'}, 400
             if col['data'].get('other_table_id') != email_table.get('_id'):
-                return None, None, {'error_msg': 'Column `Emails` exists and its link column is not for email table.'}, 400
+                return None, None, {
+                    'error_msg': 'Column `Emails` exists and its link column is not for email table.'}, 400
             link_column_exists = True
             break
         # create email table columns
-        email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+        email_table, error_msg = check_table_columns(seatable, email_table.get('_id'),
+                                                     email_sync_tables_dict['email_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         # create link table columns
-        link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+        link_table, error_msg = check_table_columns(seatable, link_table.get('_id'),
+                                                    email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         if not link_column_exists:
@@ -315,7 +324,8 @@ def check_tables(existed_tables, target_table_id, required_columns):
     return False, None, 'table %s not found' % target_table_id
 
 
-def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid=None, job_type=None, detail=None, check_imap=True):
+def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid=None, job_type=None, detail=None,
+                                  check_imap=True):
     """
     check api token and names
     return invalid message or None
@@ -381,7 +391,8 @@ def check_imap_account(imap_server, email_user, email_password, return_imap=Fals
             return None, 'user or password invalid, email: %s user login error' % (email_user,)
     except Exception as e:
         logger.exception(e)
-        logger.error('imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (imap_server, email_user, email_password, e))
+        logger.error('imap_server: %s, email_user: %s, email_password: %s, login error: %s' % (
+        imap_server, email_user, email_password, e))
         if not return_imap:
             return 'email: %s login error: %s' % (email_user, e)
         else:
@@ -406,3 +417,17 @@ def utc_datetime_to_isoformat_timestr(utc_datetime):
     except Exception as e:
         logger.error(e)
         return ''
+
+
+def check_mysql_account(host, user, password, database, port):
+    try:
+        port = int(port)
+    except:
+        return 'Port %s invalid' % (port,)
+
+    try:
+        conn = pymysql.connect(user=user, password=password, database=database, host=host, port=port)
+    except:
+        return 'Failed to connect to mysql server'
+    else:
+        conn.close()

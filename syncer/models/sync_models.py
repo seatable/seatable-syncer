@@ -42,3 +42,27 @@ class SyncJobs(db.Model):
             'last_trigger_time': utc_datetime_to_isoformat_timestr(self.last_trigger_time),
             'is_valid': 1 if self.is_valid else 0
         }
+
+
+class MysqlAccounts(db.Model):
+    __tablename__ = 'sync_mysql_accounts'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    host = db.Column(db.String(255), nullable=False, index=True)
+    user = db.Column(db.String(255), nullable=False, index=True)
+    password = db.Column(db.String(100), nullable=False)
+    port = db.Column(db.Integer, nullable=False, index=True)
+    db_name = db.Column(db.String(255), nullable=False, index=True)
+    owner = db.Column(db.String(255), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'host': self.host,
+            'user': self.user,
+            'password': self.password,
+            'port': self.port,
+            'db_name': self.db_name,
+            'owner': self.owner,
+            'created_at': utc_datetime_to_isoformat_timestr(self.created_at)
+        }

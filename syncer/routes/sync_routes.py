@@ -11,11 +11,13 @@ from seatable_api.constants import ColumnTypes
 from app import db
 from config import Config
 from email_sync.email_syncer import sync as sync_emails
-from models.sync_models import SyncJobs
+from models.sync_models import SyncJobs, MysqlAccounts
 from scheduler import scheduler_jobs_manager
-from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, utc_datetime_to_isoformat_timestr, check_imap_account
+from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, \
+    utc_datetime_to_isoformat_timestr, check_imap_account, check_mysql_account
 from utils.constants import JOB_TYPE_EMAIL_SYNC
-from form.login_form import LoginForm
+from form.form import LoginForm, MysqlAccountForm, MysqlQueryForm
+import pymysql
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +104,8 @@ def sync_jobs_api(dtable_uuid):
                 return {'error_msg': error_msg}, 400
 
             try:
-                email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
+                email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id,
+                                                                                           link_table_id, lang=lang)
             except Exception as e:
                 logger.exception(e)
                 logger.error('check email sync tables error: %s', e)
@@ -116,7 +119,8 @@ def sync_jobs_api(dtable_uuid):
                 'link_table_id': link_table.get('_id')
             })
 
-        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid, job_type=job_type, detail=detail)
+        error_msg = check_api_token_and_resources(api_token, Config.DTABLE_WEB_SERVICE_URL, dtable_uuid=dtable_uuid,
+                                                  job_type=job_type, detail=detail)
         if error_msg:
             return {'error_msg': error_msg}, 400
 
@@ -195,7 +199,8 @@ def sync_job_api(dtable_uuid, job_id):
             return {'error_msg': 'detail invalid.'}, 400
 
         try:
-            job = SyncJobs.query.filter(SyncJobs.id == job_id, SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
+            job = SyncJobs.query.filter(SyncJobs.id == job_id,
+                                        SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
         except Exception as e:
             logger.error('query job: %s error: %s', job_id, e)
             return {'error_msg': 'Internal Server Error.'}, 500
@@ -225,7 +230,8 @@ def sync_job_api(dtable_uuid, job_id):
                     return {'error_msg': error_msg}, 400
 
                 try:
-                    email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id, link_table_id, lang=lang)
+                    email_table, link_table, error_body, status_code = check_email_sync_tables(seatable, email_table_id,
+                                                                                               link_table_id, lang=lang)
                 except Exception as e:
                     logger.exception(e)
                     logger.error('update job check email sync tables error: %s', e)
@@ -265,7 +271,8 @@ def sync_job_api(dtable_uuid, job_id):
 
     if request.method == 'DELETE':
         try:
-            job = SyncJobs.query.filter(SyncJobs.id == job_id, SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
+            job = SyncJobs.query.filter(SyncJobs.id == job_id,
+                                        SyncJobs.dtable_uuid == dtable_uuid.replace('-', '')).first()
         except Exception as e:
             logger.error('get job: %s error %s', job_id, e)
             return {'error_msg': 'Internal Server Error.'}, 500
@@ -352,14 +359,15 @@ def add_sync_tables_api():
         seatable.rename_column(email_table_name, link_table_name, 'Threads')
     except Exception as e:
         logger.exception(e)
-        logger.error('init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s', 
-                     api_token, Config.DTABLE_WEB_SERVICE_URL, email_table_name, link_table_name, lang, e)
+        logger.error(
+            'init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s',
+            api_token, Config.DTABLE_WEB_SERVICE_URL, email_table_name, link_table_name, lang, e)
         return {'error_msg': 'Internal Server Error.'}, 500
 
     return {
-        'email_table_name': email_table_name,
-        'link_table_name': link_table_name,
-    }, 200
+               'email_table_name': email_table_name,
+               'link_table_name': link_table_name,
+           }, 200
 
 
 @app.route('/api/v1/sync-jobs/<job_id>/run/', methods=['POST'])
@@ -380,7 +388,7 @@ def run_sync_job_api(job_id):
 
         if mode not in ['ON', 'SINCE']:
             return {'error_msg': 'mode invalid.'}, 400
-        
+
         if not send_date_str:
             send_date_str = str(datetime.now().today())
         else:
@@ -429,7 +437,8 @@ def run_sync_job_api(job_id):
         except Exception as e:
             logger.exception(e)
             logger.error('sync emails imap_server: %s, email_user: %s, dtable_web_service_url: %s, email table: %s, \
-                link table: %s, send_date: %s, mode: %s error: %s', imap_server, email_user, dtable_web_service_url, email_table_name, link_table_name, send_date_str, mode, e)
+                link table: %s, send_date: %s, mode: %s error: %s', imap_server, email_user, dtable_web_service_url,
+                         email_table_name, link_table_name, send_date_str, mode, e)
             return {'error_msg': 'Internal Server Error.'}, 500
 
         last_trigger_time = datetime.utcnow()
@@ -442,10 +451,10 @@ def run_sync_job_api(job_id):
             logger.error('update job: %s last trigger time error: %s', db_job, e)
 
     return {
-        'success': True,
-        'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
-        'job_id': db_job.id
-    }, 200
+               'success': True,
+               'last_trigger_time': utc_datetime_to_isoformat_timestr(last_trigger_time),
+               'job_id': db_job.id
+           }, 200
 
 
 @app.route('/account/login/', methods=['POST', 'GET'])
@@ -484,6 +493,100 @@ def login_out():
     return redirect(url_for('login'))
 
 
-@app.template_filter('ios_time_formater')
-def ios_time_formater(time_value):
-    return datetime.strftime(datetime.fromisoformat(time_value), '%Y-%m-%d %H:%M:%S') if time_value else time_value
+@app.route('/mysql/accounts/', methods=['GET'])
+def mysql_accounts():
+    owner = session.get("user")
+    if not owner:
+        return redirect(url_for('login'))
+    try:
+        accounts = MysqlAccounts.query.filter().all()
+    except Exception as e:
+        logger.error('query mysql accounts error: %s', e)
+        return render_template('mysql_accounts.html', error='Internet server error')
+    return render_template('mysql_accounts.html', accounts=accounts)
+
+
+@app.route('/mysql/account/add/', methods=['POST', 'GET'])
+def add_mysql_account():
+    owner = session.get("user")
+    if not owner:
+        return redirect(url_for('login'))
+
+    form = MysqlAccountForm()
+    if request.method == 'GET' or not form.validate_on_submit():
+        return render_template('add_mysql_account.html', form=form)
+
+    host, user, port, db_name, password = \
+        form.host.data, form.user.data, form.port.data, form.db_name.data, form.password.data
+
+    error_msg = check_mysql_account(host, user, password, db_name, port)
+    if error_msg:
+        return render_template('add_mysql_account.html', form=form, error=error_msg)
+
+    try:
+        account = MysqlAccounts.query.filter_by(host=host, user=user, port=port, db_name=db_name, owner=owner).first()
+    except Exception as e:
+        logger.error('add mysql query account error: %s', e)
+        return render_template('add_mysql_account.html', form=form, error='Internal Server Error')
+
+    if account:
+        if account.password != password:
+            account.password = password
+            try:
+                db.session.add(account)
+                db.session.commit()
+            except Exception as e:
+                logger.error('update mysql account: %s password error: %s', user, e)
+        return redirect(url_for('mysql_query', account_id=account.id))
+
+    account = MysqlAccounts(
+        host=host,
+        user=user,
+        password=password,
+        port=port,
+        db_name=db_name,
+        owner=owner,
+        created_at=datetime.utcnow()
+    )
+    try:
+        db.session.add(account)
+        db.session.commit()
+    except Exception as e:
+        logger.error('Add mysql account error: %s', e)
+        return render_template('add_mysql_account.html', form=form, error='Internal Server Error')
+
+    return redirect(url_for('mysql_query', account_id=account.id))
+
+
+@app.route('/mysql/<account_id>/query/', methods=['GET', 'POST'])
+def mysql_query(account_id):
+    user = session.get("user")
+    if not user:
+        return redirect(url_for('login'))
+
+    form = MysqlQueryForm()
+    if request.method == 'GET' or not form.validate_on_submit():
+        return render_template('mysql_query.html', form=form)
+
+    try:
+        account = MysqlAccounts.query.filter_by(id=account_id).first()
+    except Exception as e:
+        logger.error('query mysql account error: %s', e)
+        return render_template('mysql_query.html', form=form, error='Internal Server Error')
+
+    try:
+        conn = pymysql.connect(host=account.host, user=account.user, password=account.password,
+                               database=account.db_name, port=account.port)
+    except Exception as e:
+        return render_template('mysql_query.html', form=form, message='Failed to connect to mysql server')
+
+    try:
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute(form.query.data)
+            query_results = cursor.fetchall()
+    except Exception as e:
+        return render_template('mysql_query.html', form=form, message=e)
+    finally:
+        conn.close()
+
+    return render_template('mysql_query.html', form=form, query_results=query_results)
