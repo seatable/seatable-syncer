@@ -409,15 +409,19 @@ def utc_datetime_to_isoformat_timestr(utc_datetime):
         return ''
 
 
-def check_mysql_account(host, user, password, database, port):
+def check_db_account(host, user, password, database, port, db_type):
     try:
         port = int(port)
     except:
         return 'Port %s invalid' % (port,)
-
-    try:
-        conn = pymysql.connect(user=user, password=password, database=database, host=host, port=port)
-    except:
-        return 'Failed to connect to mysql server'
+    if db_type == 'mysql':
+        try:
+            conn = pymysql.connect(user=user, password=password, database=database, host=host, port=port)
+        except pymysql.err.OperationalError as e:
+            return 'Failed to connect to mysql server %s: %s' % (database, e.args[1])
+        except Exception as e:
+            return 'Failed to connect to mysql server %s: %s' % (database, e)
+        else:
+            conn.close()
     else:
-        conn.close()
+        return '%s is not supported' % db_type

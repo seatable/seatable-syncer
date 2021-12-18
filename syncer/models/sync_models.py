@@ -44,25 +44,19 @@ class SyncJobs(db.Model):
         }
 
 
-class MysqlAccounts(db.Model):
-    __tablename__ = 'sync_mysql_accounts'
+class SyncAccounts(db.Model):
+    __tablename__ = 'sync_accounts'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    host = db.Column(db.String(255), nullable=False, index=True)
-    user = db.Column(db.String(255), nullable=False, index=True)
-    password = db.Column(db.String(100), nullable=False)
-    port = db.Column(db.Integer, nullable=False, index=True)
-    db_name = db.Column(db.String(255), nullable=False, index=True)
+    db_config = db.Column(db.TEXT, nullable=False)
+    db_type = db.Column(db.String(20), nullable=False, index=True)
     owner = db.Column(db.String(255), nullable=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
     def to_dict(self):
         return {
             'id': self.id,
-            'host': self.host,
-            'user': self.user,
-            'password': self.password,
-            'port': self.port,
-            'db_name': self.db_name,
+            'db_type': self.db_type,
+            'db_config': json.loads(self.db_config),
             'owner': self.owner,
             'created_at': utc_datetime_to_isoformat_timestr(self.created_at)
         }

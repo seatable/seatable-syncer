@@ -1,5 +1,5 @@
 {% extends "base.html" %} 
-{% block title %}mysql accounts{% endblock %}
+{% block title %}database accounts{% endblock %}
 {% block head %}
     <style>
         html, body {
@@ -27,11 +27,11 @@
 {% block content %}
 <div>
     <div class="table-container">
-        <a href="{{ url_for('add_mysql_account') }}">to add mysql account</a>
+        <a href="{{ url_for('add_db_account') }}">to add database account</a>
         {% if error %}
         <div class="account-error">{{ error }}</div>
         {% else %}
-        <div style="margin-top: 20px">mysql accounts:</div>
+        <div style="margin-top: 20px">database accounts:</div>
         <table>
             {% if accounts %}
                 <thead>
@@ -46,13 +46,13 @@
                 </thead>
                 {% for account in accounts %}
                 <tr>
-                    <td >{{ account.host }}</td>
-                    <td >{{ account.user }}</td>
-                    <td >{{ account.password }}</td>
-                    <td >{{ account.port }}</td>
-                    <td >{{ account.db_name }}</td>
+                    <td >{{ account.db_config.host }}</td>
+                    <td >{{ account.db_config.user }}</td>
+                    <td >{{ account.db_config.password }}</td>
+                    <td >{{ account.db_config.port }}</td>
+                    <td >{{ account.db_config.db_name }}</td>
                     <td >{{ account.owner }}</td>
-                    <td ><a href="{{ url_for('mysql_query', account_id=account.id) }}">to query</a></td>
+                    <td ><a href="{{ url_for('db_query', account_id=account.id) }}">to query</a></td>
                 </tr>
                 {% endfor %}
             {% endif %}

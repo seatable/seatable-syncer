@@ -15,15 +15,13 @@ CREATE TABLE `sync_jobs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-CREATE TABLE `sync_mysql_accounts`  (
+CREATE TABLE `sync_accounts`  (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `host` varchar(255) NOT NULL,
-  `user` varchar(255) NOT NULL,
-  `password` varchar(100) NOT NULL,
-  `port` int(11) NOT NULL,
-  `db_name` varchar(255) NOT NULL,
+  `db_type` varchar(20) NOT NULL,
+  `db_config` longtext NOT NULL,
   `owner` varchar(255) NOT NULL,
   `created_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `host_user_port_db_name_owner`(`host`, `user`, `port`, `db_name`, `owner`)
+  PRIMARY KEY (`id`),
+  KEY `db_type`(`db_type`),
+  KEY `owner`(`owner`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8;
