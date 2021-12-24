@@ -14,8 +14,8 @@ class AccountForm(Form):
     user = StringField('user', validators=[DataRequired('user is null')])
     password = PasswordField('password', validators=[DataRequired('password is null')])
     port = IntegerField('port', validators=[DataRequired('port is null')])
-    db_name = StringField('db_name', validators=[DataRequired('db_name is null')])
-    db_type = SelectField('db_type', choices=('mysql',))
+    account_name = StringField('account_name', validators=[DataRequired('account_name is null')])
+    account_type = SelectField('account_type', choices=('mysql',))
 
 
 class QueryForm(Form):

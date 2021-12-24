@@ -17,11 +17,11 @@ CREATE TABLE `sync_jobs` (
 
 CREATE TABLE `sync_accounts`  (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `db_type` varchar(20) NOT NULL,
-  `db_config` longtext NOT NULL,
+  `account_type` varchar(20) NOT NULL,
+  `account_config` longtext NOT NULL,
   `owner` varchar(255) NOT NULL,
   `created_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `db_type`(`db_type`),
+  KEY `account_type`(`account_type`),
   KEY `owner`(`owner`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8;

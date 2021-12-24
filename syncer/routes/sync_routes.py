@@ -14,7 +14,7 @@ from email_sync.email_syncer import sync as sync_emails
 from models.sync_models import SyncJobs, SyncAccounts
 from scheduler import scheduler_jobs_manager
 from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, \
-    utc_datetime_to_isoformat_timestr, check_imap_account, check_db_account
+    utc_datetime_to_isoformat_timestr, check_imap_account, check_account
 from utils.constants import JOB_TYPE_EMAIL_SYNC
 from form.form import LoginForm, AccountForm, QueryForm
 import pymysql
@@ -487,44 +487,44 @@ def login_out():
     return redirect(url_for('login'))
 
 
-@app.route('/db/accounts/', methods=['GET'])
-def db_accounts():
+@app.route('/accounts/', methods=['GET'])
+def accounts():
     owner = session.get("user")
     if not owner:
         return redirect(url_for('login'))
     try:
         accounts = SyncAccounts.query.filter().all()
     except Exception as e:
-        logger.error('query database accounts error: %s', e)
-        return render_template('db_accounts.html', error='Internet server error')
+        logger.error('query accounts error: %s', e)
+        return render_template('accounts.html', error='Internet server error')
     account_list = []
     for account in accounts:
         account_list.append(account.to_dict())
-    return render_template('db_accounts.html', accounts=account_list)
+    return render_template('accounts.html', accounts=account_list)
 
 
-@app.route('/db/account/add/', methods=['POST', 'GET'])
-def add_db_account():
+@app.route('/account/add/', methods=['POST', 'GET'])
+def add_account():
     owner = session.get("user")
     if not owner:
         return redirect(url_for('login'))
 
     form = AccountForm()
     if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('add_db_account.html', form=form)
+        return render_template('add_account.html', form=form)
 
-    host, user, port, db_name, password, db_type = \
-        form.host.data, form.user.data, form.port.data, form.db_name.data, form.password.data, form.db_type.data
+    host, user, port, account_name, password, account_type = \
+        form.host.data, form.user.data, form.port.data, form.account_name.data, form.password.data, form.account_type.data
 
-    error_msg = check_db_account(host, user, password, db_name, port, db_type)
+    error_msg = check_account(host, user, password, account_name, port, account_type)
     if error_msg:
-        return render_template('add_db_account.html', form=form, error=error_msg)
+        return render_template('add_account.html', form=form, error=error_msg)
 
-    db_config = {'host': host, 'user': user, 'port': port, 'db_name': db_name, 'password': password, 'db_type': db_type}
+    account_config = {'host': host, 'user': user, 'port': port, 'account_name': account_name, 'password': password, 'account_type': account_type}
 
     account = SyncAccounts(
-        db_config=json.dumps(db_config),
-        db_type=db_type,
+        account_config=json.dumps(account_config),
+        account_type=account_type,
         owner=owner,
         created_at=datetime.utcnow()
     )
@@ -532,42 +532,43 @@ def add_db_account():
         db.session.add(account)
         db.session.commit()
     except Exception as e:
-        logger.error('Add database account error: %s', e)
-        return render_template('add_db_account.html', form=form, error='Internal Server Error')
+        logger.error('Add account error: %s', e)
+        return render_template('add_account.html', form=form, error='Internal Server Error')
 
-    return redirect(url_for('db_query', account_id=account.id))
+    return redirect(url_for('query', account_id=account.id))
 
 
-@app.route('/db/<account_id>/query/', methods=['GET', 'POST'])
-def db_query(account_id):
+@app.route('/account/<account_id>/query/', methods=['GET', 'POST'])
+def query(account_id):
     user = session.get("user")
     if not user:
         return redirect(url_for('login'))
 
     form = QueryForm()
     if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('db_query.html', form=form)
+        return render_template('query.html', form=form)
 
     try:
         account = SyncAccounts.query.filter_by(id=account_id).first().to_dict()
     except Exception as e:
-        logger.error('query db account error: %s', e)
-        return render_template('db_query.html', form=form, error='Internal Server Error')
+        logger.error('query account error: %s', e)
+        return render_template('query.html', form=form, error='Internal Server Error')
 
-    db_config = account.get('db_config')
+    account_config = account.get('account_config')
     try:
-        conn = pymysql.connect(host=db_config.get('host'), user=db_config.get('user'), port=db_config.get('port'),
-                               password=db_config.get('password'), database=db_config.get('db_name'))
+        conn = pymysql.connect(host=account_config.get('host'), user=account_config.get('user'),
+                               port=account_config.get('port'), password=account_config.get('password'),
+                               database=account_config.get('account_name'))
     except Exception as e:
-        return render_template('db_query.html', form=form, message='Failed to connect to db server')
+        return render_template('query.html', form=form, message='Failed to connect to server')
 
     try:
         with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute(form.query.data)
             query_results = cursor.fetchall()
     except Exception as e:
-        return render_template('db_query.html', form=form, message=e)
+        return render_template('query.html', form=form, message=e)
     finally:
         conn.close()
 
-    return render_template('db_query.html', form=form, query_results=query_results)
+    return render_template('query.html', form=form, query_results=query_results)

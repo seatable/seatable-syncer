@@ -47,16 +47,16 @@ class SyncJobs(db.Model):
 class SyncAccounts(db.Model):
     __tablename__ = 'sync_accounts'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    db_config = db.Column(db.TEXT, nullable=False)
-    db_type = db.Column(db.String(20), nullable=False, index=True)
+    account_config = db.Column(db.TEXT, nullable=False)
+    account_type = db.Column(db.String(20), nullable=False, index=True)
     owner = db.Column(db.String(255), nullable=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
     def to_dict(self):
         return {
             'id': self.id,
-            'db_type': self.db_type,
-            'db_config': json.loads(self.db_config),
+            'account_type': self.account_type,
+            'account_config': json.loads(self.account_config),
             'owner': self.owner,
             'created_at': utc_datetime_to_isoformat_timestr(self.created_at)
         }

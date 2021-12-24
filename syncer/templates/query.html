@@ -1,5 +1,5 @@
 {% extends "base.html" %} 
-{% block title %}database query{% endblock %}
+{% block title %}query{% endblock %}
 {% block head %}
     <style>
         html, body {
@@ -57,7 +57,7 @@
         <form class="query-form" action="" method="post">
             {{ form.csrf_token }}
             <div class="form-group form-inline">
-                <label for="query">sql query: </label>
+                <label for="query">query: </label>
                 <textarea id="query" type="textarea" name="query" class="form-control ml-2 mr-4"></textarea>
             </div>
             <div class="query-error">{{ form.query.errors[0] }}</div>

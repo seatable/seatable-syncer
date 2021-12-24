@@ -1,5 +1,5 @@
 {% extends "base.html" %} 
-{% block title %}database accounts{% endblock %}
+{% block title %}accounts{% endblock %}
 {% block head %}
     <style>
         html, body {
@@ -27,11 +27,11 @@
 {% block content %}
 <div>
     <div class="table-container">
-        <a href="{{ url_for('add_db_account') }}">to add database account</a>
+        <a href="{{ url_for('add_account') }}">to add account</a>
         {% if error %}
         <div class="account-error">{{ error }}</div>
         {% else %}
-        <div style="margin-top: 20px">database accounts:</div>
+        <div style="margin-top: 20px">accounts:</div>
         <table>
             {% if accounts %}
                 <thead>
@@ -40,19 +40,19 @@
                         <th>user</th>
                         <th>password</th>
                         <th>port</th>
-                        <th>db_name</th>
+                        <th>account_name</th>
                         <th>owner</th>
                     </tr>
                 </thead>
                 {% for account in accounts %}
                 <tr>
-                    <td >{{ account.db_config.host }}</td>
-                    <td >{{ account.db_config.user }}</td>
-                    <td >{{ account.db_config.password }}</td>
-                    <td >{{ account.db_config.port }}</td>
-                    <td >{{ account.db_config.db_name }}</td>
+                    <td >{{ account.account_config.host }}</td>
+                    <td >{{ account.account_config.user }}</td>
+                    <td >{{ account.account_config.password }}</td>
+                    <td >{{ account.account_config.port }}</td>
+                    <td >{{ account.account_config.account_name }}</td>
                     <td >{{ account.owner }}</td>
-                    <td ><a href="{{ url_for('db_query', account_id=account.id) }}">to query</a></td>
+                    <td ><a href="{{ url_for('query', account_id=account.id) }}">to query</a></td>
                 </tr>
                 {% endfor %}
             {% endif %}

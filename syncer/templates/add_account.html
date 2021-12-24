@@ -1,5 +1,5 @@
 {% extends "base.html" %} 
-{% block title %}add database account{% endblock %}
+{% block title %}add account{% endblock %}
 {% block head %}
     <style>
         html, body {
@@ -39,15 +39,15 @@
 {% block content %}
 <div>
     <div class="form-container">
-        <div>add database account</div>
+        <div>add account</div>
         {% if error %}
         <div class="account-error">{{ error }}</div>
         {% endif %}
-        <form class="account-form" action="{{ url_for('add_db_account') }}" method="post">
+        <form class="account-form" action="{{ url_for('add_account') }}" method="post">
             {{ form.csrf_token }}
             <div class="form-group form-inline">
-                <label for="db_type">database type: </label>
-                <select name="db_type" id="db_type" class="form-control ml-2 mr-4" style="width: 200px">
+                <label for="account_type">account type: </label>
+                <select name="account_type" id="account_type" class="form-control ml-2 mr-4" style="width: 200px">
                     <option value="mysql">mysql</option>
                 </select>
             </div>
@@ -72,10 +72,10 @@
             </div>
             <div class="account-error">{{ form.port.errors[0] }}</div>
             <div class="form-group form-inline">
-                <label for="db_name">db_name: </label>
-                <input id="db_name" type="text" name="db_name" class="form-control ml-2 mr-4"/>
+                <label for="account_name">account_name: </label>
+                <input id="account_name" type="text" name="account_name" class="form-control ml-2 mr-4"/>
             </div>
-            <div class="account-error">{{ form.db_name.errors[0] }}</div>
+            <div class="account-error">{{ form.account_name.errors[0] }}</div>
             <button class="btn btn-primary" style="width: 100px" type="submit">add</button>
         </form>
     </div>
