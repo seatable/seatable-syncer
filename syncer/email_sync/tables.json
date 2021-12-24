@@ -15,6 +15,7 @@
     "link_table": [
         {"column_name": "Subject", "type": "text"},
         {"column_name": "Last Updated", "type": "date", "data": {"format": "YYYY-MM-DD HH:mm"}},
-        {"column_name": "Thread ID", "type": "text"}
+        {"column_name": "Thread ID", "type": "text"},
+        {"column_name": "Unread", "type": "checkbox"}
     ]
 }
