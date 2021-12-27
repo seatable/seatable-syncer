@@ -1,0 +1,109 @@
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.seatable-synchronizer-accounts-error {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seatable-synchronizer-accounts {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-header {
+  height: 50px;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-shrink: 0;
+  background: #f4f4f7;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container {
+  overflow-y: hidden;
+  overflow-x: scroll;
+  width: calc(100% - 32px);
+  max-height: calc(100% - 50px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 10px 16px 16px 16px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-header {
+  height: 33px;
+  width: 100%;
+  background-color: #f9f9f9;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-account-body {
+  width: 100%;
+  flex: 1;
+  overflow-y: scroll;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-account-footer {
+  width: 100%;
+  height: 32px;
+  overflow: hidden;
+  line-height: 32px;
+  background-color: #f9f9f9;
+  border-top: 1px solid #ccc;
+  padding: 0 8px;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-row {
+  width: 100%;
+  height: 33px;
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid #ccc;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-accounts-content .seatable-synchronizer-account-row:last-child {
+  border-bottom: none;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-cell {
+  width: calc((100%  - 200px) / 6);
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  border-right: 1px solid #ccc;
+  line-height: 28px;
+  padding: 2px 8px;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-index-cell {
+  width: 90px;
+  align-items: center;
+  justify-content: center;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-query-cell {
+  width: 110px;
+  align-items: center;
+  justify-content: center;
+  color: #ff6700;
+  cursor: pointer;
+}
+
+.seatable-synchronizer-accounts .seatable-synchronizer-account-row .seatable-synchronizer-account-cell:last-child {
+  border-right: none;
+}

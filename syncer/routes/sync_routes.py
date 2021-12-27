@@ -18,7 +18,6 @@ from utils import check_api_token_and_resources, email_sync_tables_dict, check_e
 from utils.constants import JOB_TYPE_EMAIL_SYNC
 from form.form import LoginForm, AccountForm, QueryForm
 import pymysql
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -503,25 +502,24 @@ def accounts():
     return render_template('accounts.html', accounts=account_list)
 
 
-@app.route('/account/add/', methods=['POST', 'GET'])
+@app.route('/api/v1/account/add/', methods=['POST'])
 def add_account():
     owner = session.get("user")
     if not owner:
-        return redirect(url_for('login'))
+        return { 'error': 'Session has expired' }, 500
 
-    form = AccountForm()
-    if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('add_account.html', form=form)
-
-    host, user, port, account_name, password, account_type = \
-        form.host.data, form.user.data, form.port.data, form.account_name.data, form.password.data, form.account_type.data
-
+    account_data = request.get_json()
+    host = account_data.get('host', '')
+    user = account_data.get('user', '')
+    port = int(account_data.get('port', ''))
+    account_name = account_data.get('account_name', '')
+    password = account_data.get('password', '')
+    account_type = account_data.get('account_type', '')
     error_msg = check_account(host, user, password, account_name, port, account_type)
     if error_msg:
-        return render_template('add_account.html', form=form, error=error_msg)
+        return { 'error': error_msg }, 500
 
     account_config = {'host': host, 'user': user, 'port': port, 'account_name': account_name, 'password': password, 'account_type': account_type}
-
     account = SyncAccounts(
         account_config=json.dumps(account_config),
         account_type=account_type,
@@ -533,26 +531,26 @@ def add_account():
         db.session.commit()
     except Exception as e:
         logger.error('Add account error: %s', e)
-        return render_template('add_account.html', form=form, error='Internal Server Error')
+        return { 'error': 'Internal Server Error' }, 500
+    
+    try:
+        return { 'account': account.to_dict() }, 200
+    except Exception as e:
+        logger.error('Add account error: %s', e)
+        return { 'error': 'Internal Server Error' }, 500
 
-    return redirect(url_for('query', account_id=account.id))
 
-
-@app.route('/account/<account_id>/query/', methods=['GET', 'POST'])
+@app.route('/api/v1/account/<account_id>/query/', methods=['POST'])
 def query(account_id):
     user = session.get("user")
     if not user:
-        return redirect(url_for('login'))
-
-    form = QueryForm()
-    if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('query.html', form=form)
+        return { 'error': 'Session has expired' }, 500
 
     try:
         account = SyncAccounts.query.filter_by(id=account_id).first().to_dict()
     except Exception as e:
         logger.error('query account error: %s', e)
-        return render_template('query.html', form=form, error='Internal Server Error')
+        return { 'error': 'Internal Server Error' }, 500
 
     account_config = account.get('account_config')
     try:
@@ -560,15 +558,19 @@ def query(account_id):
                                port=account_config.get('port'), password=account_config.get('password'),
                                database=account_config.get('account_name'))
     except Exception as e:
-        return render_template('query.html', form=form, message='Failed to connect to server')
+        logger.error('Add account error: %s', e)
+        return { 'error': 'Failed to connect to server' }, 500
 
     try:
+        query_data = request.get_json()
+        query = query_data.get('query', '')
         with conn.cursor(pymysql.cursors.DictCursor) as cursor:
-            cursor.execute(form.query.data)
+            cursor.execute(query)
             query_results = cursor.fetchall()
     except Exception as e:
-        return render_template('query.html', form=form, message=e)
+        logger.error('Add account error: %s', e)
+        return { 'error': 'Internal Server Error' }, 500
     finally:
         conn.close()
 
-    return render_template('query.html', form=form, query_results=query_results)
+    return { 'results': query_results }, 200

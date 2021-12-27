@@ -1,0 +1,70 @@
+.add-account-dialog {
+  width: 500px;
+  max-height: calc(100% - 56px);
+  overflow: hidden;
+}
+
+.add-account-dialog .modal-content {
+  height: 100%;
+}
+
+.add-account-dialog .header-close-content {
+  height: 24px;
+  width: 24px;
+  color: #000;
+  opacity: 0.5;
+  text-align: center;
+}
+
+.add-account-dialog .header-close-content .dtable-font {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.add-account-dialog .header-close-content:hover {
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.add-account-dialog .account-form {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.add-account-dialog .modal-content .add-account-content {
+  overflow-y: scroll;
+}
+
+.add-account-dialog .add-account-content .form-control:hover {
+  border-color: hsl(0,0%,70%);
+}
+
+.add-account-dialog .add-account-content .form-control:hover:focus {
+  border-color: #1991eb;
+} 
+
+.add-account-dialog .account-password-input-content {
+  position: relative;
+}
+
+.add-account-dialog .account-password-input-content .eye-icon {
+  height: 24px;
+  width: 24px;
+  text-align: center;
+  position: absolute;
+  top: 7px;
+  right: 5px;
+  color: #000;
+  opacity: 0.5;
+}
+
+.add-account-dialog .account-password-input-content .eye-icon:hover {
+  opacity: .75;
+  cursor: pointer;
+}
+
+.add-account-dialog .add-account-error {
+  color: red;
+}

@@ -16,5 +16,9 @@ test-compose.yml
 
 #frontend
 frontend/webpack-stats.dev.json
+frontend/webpack-stats.pro.json
 frontend/node_modules
 frontend/build
+
+#frontend build
+static/frontend

@@ -1,4 +1,5 @@
 import React, { Fragment } from 'react';
+import ReactDOM from 'react-dom';
 import moment from 'moment';
 
 import '@/assets/css/common.css';
@@ -64,4 +65,9 @@ class App extends React.Component {
   }
 }
 
-export default App;
+ReactDOM.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+  document.getElementById('root')
+);

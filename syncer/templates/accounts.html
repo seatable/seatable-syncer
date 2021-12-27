@@ -1,67 +1,19 @@
 {% extends "base.html" %} 
 {% block title %}accounts{% endblock %}
-{% block head %}
-    <style>
-        html, body {
-            width: 100%;
-            height: 100%;
-            padding: 0;
-            margin: 0;
-        }
-
-        .table-container {
-            margin: 0 auto;
-            padding: 30px 25px 15px;
-            min-width: 336px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .account-error {
-            font-size: 87.5%;
-            color: #cd201f;
-            justify-content: center;
-        }
-    </style>
-{% endblock %}
 {% block content %}
-<div>
-    <div class="table-container">
-        <a href="{{ url_for('add_account') }}">to add account</a>
-        {% if error %}
-        <div class="account-error">{{ error }}</div>
-        {% else %}
-        <div style="margin-top: 20px">accounts:</div>
-        <table>
-            {% if accounts %}
-                <thead>
-                    <tr>
-                        <th>host</th>
-                        <th>user</th>
-                        <th>password</th>
-                        <th>port</th>
-                        <th>account_name</th>
-                        <th>owner</th>
-                    </tr>
-                </thead>
-                {% for account in accounts %}
-                <tr>
-                    <td >{{ account.account_config.host }}</td>
-                    <td >{{ account.account_config.user }}</td>
-                    <td >{{ account.account_config.password }}</td>
-                    <td >{{ account.account_config.port }}</td>
-                    <td >{{ account.account_config.account_name }}</td>
-                    <td >{{ account.owner }}</td>
-                    <td ><a href="{{ url_for('query', account_id=account.id) }}">to query</a></td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-        </table>
-        {% endif %}
-    </div>
-</div>
+    <div id="root"></div>
+    <script type="text/javascript">
+        window.app = {};
+        console.log('1')
+        window.app = {
+            config: {
+                error: '{{ error }}',
+                accounts: {{ accounts | safe }},
+            }
+        };
+    </script>
 {% endblock %}
 {% block scripts %}
-     {{ render_bundle('runtime') | safe }}
-     {{ render_bundle('app') | safe }}
+    {{ render_bundle('runtime') | safe }}
+    {{ render_bundle('accounts') | safe }}
 {% endblock %}

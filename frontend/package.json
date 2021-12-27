@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "is-hotkey": "^0.1.4",
+    "form-data": "^2.5.1",
     "moment": "2.29.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
+    "react-select": "^3.1.0",
     "reactstrap": "9.0.1"
   },
   "scripts": {
