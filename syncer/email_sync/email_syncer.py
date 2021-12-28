@@ -285,7 +285,8 @@ def update_email_thread_ids(seatable, email_table_name, send_date, email_list):
             new_thread_rows.append({
                 'Subject': email['Subject'],
                 'Last Updated': email['Date'],
-                'Thread ID': thread_id
+                'Thread ID': thread_id,
+                'Unread': True
             })
             to_be_updated_thread_dict[thread_id] = {
                 'Last Updated': email['Date'],
@@ -343,7 +344,7 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
     # batch update Last Updated
     to_be_updated_last_updated_rows = [{
         'row_id': thread_id_row_id_dict[key][0],
-        'row': {'Last Updated': value['Last Updated']}
+        'row': {'Last Updated': value['Last Updated'], 'Unread': True}
     } for key, value in to_be_updated_thread_dict.items()]
     seatable.batch_update_rows(link_table_name, to_be_updated_last_updated_rows)
 
