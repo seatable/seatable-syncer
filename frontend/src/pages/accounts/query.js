@@ -15,7 +15,7 @@ class QueryAccount extends Component {
       isClosing: false,
       searchValue: '',
       error: '',
-      results: [],
+      results: '',
       columnWidthMap: {},
       isQuerying: false,
     };
@@ -64,10 +64,13 @@ class QueryAccount extends Component {
         }
         this.setState({ error, isQuerying: false, results: [] });
       } else {
+        
         let columnWidthMap = { 'index': 80 };
-        Object.keys(results[0]).forEach(key => {
-          columnWidthMap[key] = 200;
-        });
+        if (Array.isArray(results) && results.length > 0) {
+          Object.keys(results[0]).forEach(key => {
+            columnWidthMap[key] = 200;
+          });
+        }
         this.setState({ error: '', results, columnWidthMap, isQuerying: false });
       }
     }).catch(err => {
@@ -150,6 +153,14 @@ class QueryAccount extends Component {
               </div>
             </div>
           </div>
+        </div>
+      );
+    }
+
+    if (Array.isArray(results) && results.length === 0) {
+      return (
+        <div className="query-account-results-none">
+          {'No results'}
         </div>
       );
     }

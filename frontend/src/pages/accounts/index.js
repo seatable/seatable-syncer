@@ -63,11 +63,13 @@ class Accounts extends Component {
               {'Add account'}
             </button>
           </div>
-          <div className="seatable-synchronizer-accounts-container">
-            <AccountsHeader />
-            <AccountsBody accounts={accounts} onQueryToggle={this.onQueryToggle} />
-            <AccountsFooter accountsCount={accounts.length} />
-          </div>
+          {Array.isArray(accounts) && accounts.length > 0 ? (
+            <div className="seatable-synchronizer-accounts-container">
+              <AccountsHeader />
+              <AccountsBody accounts={accounts} onQueryToggle={this.onQueryToggle} />
+              <AccountsFooter accountsCount={accounts.length} />
+            </div>
+          ) : (<div className="seatable-synchronizer-accounts-none">{'No accounts'}</div>)}
         </div>
         {isShowAddAccountDialog && (
           <AddAccountDialog

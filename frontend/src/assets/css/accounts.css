@@ -33,6 +33,14 @@
   border-bottom: 1px solid #e8e8e8;
 }
 
+.seatable-synchronizer-accounts .seatable-synchronizer-accounts-none {
+  height: calc(100% - 50px);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .seatable-synchronizer-accounts .seatable-synchronizer-accounts-container {
   overflow-y: hidden;
   overflow-x: scroll;
@@ -83,11 +91,12 @@
 .seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-cell {
   width: calc((100%  - 200px) / 6);
   height: 100%;
-  display: flex;
-  align-items: flex-start;
   border-right: 1px solid #ccc;
   line-height: 28px;
   padding: 2px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .seatable-synchronizer-accounts .seatable-synchronizer-accounts-container .seatable-synchronizer-account-index-cell {

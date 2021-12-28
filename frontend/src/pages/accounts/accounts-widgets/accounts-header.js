@@ -7,8 +7,9 @@ export default function AccountsHeader() {
       <div className="seatable-synchronizer-account-row">
         <div className="seatable-synchronizer-account-cell seatable-synchronizer-account-index-cell"></div>
         {ACCOUNT_ATTRIBUTE_DISPLAY.map(attribute => {
+          const value = attribute.name;
           return (
-            <div key={`account-header-${attribute.key}`} className="seatable-synchronizer-account-cell">{attribute.name}</div>
+            <div key={`account-header-${attribute.key}`} className="seatable-synchronizer-account-cell" title={value}>{value}</div>
           );
         })}
         <div className="seatable-synchronizer-account-cell seatable-synchronizer-account-query-cell"></div>

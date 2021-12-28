@@ -97,6 +97,14 @@
   flex: 1;
 }
 
+.query-account .query-account-body .query-account-results-none {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .query-account .query-account-body .query-account-results {
   flex: 1;
   overflow: hidden;
@@ -197,6 +205,7 @@
   margin: 3px 0;
   height: calc(100% - 6px);
   border-radius: 3px;
+  z-index: 2;
 }
 
 .query-account .query-account-results-header .resize-drag-handel:hover {
