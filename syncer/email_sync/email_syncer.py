@@ -119,7 +119,7 @@ class ImapMail(object):
             return self.server.search(['SINCE', before_send_date])
         return []
 
-    def gen_email_dict(self, mail, send_date, mode):
+    def gen_email_dict(self, mail, send_date, mode, send_box):
         email_dict = {}
         msg_dict = self.server.fetch(mail, ['BODY[]'])
         mail_body = msg_dict[mail][b'BODY[]']
@@ -149,6 +149,7 @@ class ImapMail(object):
         email_dict['Reply to Message ID'] = header_info.get('In-Reply-To')
         email_dict['cc'] = header_info.get('CC')
         email_dict['Date'] = header_info.get('Date')
+        email_dict['is_sender'] = True if send_box == 'Sent Items' else False
 
         return email_dict
 
@@ -165,7 +166,7 @@ class ImapMail(object):
             results = self.get_email_results(send_date, mode=mode)
             for mail in results:
                 try:
-                    email_dict = self.gen_email_dict(mail, send_date, mode)
+                    email_dict = self.gen_email_dict(mail, send_date, mode, send_box)
                     if email_dict:
                         total_email_list.append(email_dict)
                 except Exception as e:
@@ -279,19 +280,33 @@ def update_email_thread_ids(seatable, email_table_name, send_date, email_list):
                     'Last Updated': email['Date'],
                     'message_ids': [message_id]
                 }
+            if not email.get('is_sender'):
+                to_be_updated_thread_dict[thread_id]['Unread'] = True
         else:  # generate new thread id
             thread_id = uuid4().hex
             message2thread[message_id] = thread_id
-            new_thread_rows.append({
-                'Subject': email['Subject'],
-                'Last Updated': email['Date'],
-                'Thread ID': thread_id,
-                'Unread': True
-            })
-            to_be_updated_thread_dict[thread_id] = {
-                'Last Updated': email['Date'],
-                'message_ids': [message_id]
-            }
+            if email.get('is_sender'):
+                new_thread_rows.append({
+                    'Subject': email['Subject'],
+                    'Last Updated': email['Date'],
+                    'Thread ID': thread_id
+                })
+                to_be_updated_thread_dict[thread_id] = {
+                    'Last Updated': email['Date'],
+                    'message_ids': [message_id]
+                }
+            else:
+                new_thread_rows.append({
+                    'Subject': email['Subject'],
+                    'Last Updated': email['Date'],
+                    'Thread ID': thread_id,
+                    'Unread': True
+                })
+                to_be_updated_thread_dict[thread_id] = {
+                    'Last Updated': email['Date'],
+                    'message_ids': [message_id],
+                    'Unread': True
+                }
         email['Thread ID'] = message2thread[message_id]
 
     return email_list, new_thread_rows, to_be_updated_thread_dict
@@ -345,6 +360,9 @@ def update_threads(seatable: SeaTableAPI, email_table_name, link_table_name, ema
     to_be_updated_last_updated_rows = [{
         'row_id': thread_id_row_id_dict[key][0],
         'row': {'Last Updated': value['Last Updated'], 'Unread': True}
+    } if value.get('Unread') else {
+        'row_id': thread_id_row_id_dict[key][0],
+        'row': {'Last Updated': value['Last Updated']}
     } for key, value in to_be_updated_thread_dict.items()]
     seatable.batch_update_rows(link_table_name, to_be_updated_last_updated_rows)
 
