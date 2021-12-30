@@ -14,7 +14,7 @@ class QueryAccount extends Component {
     this.state = {
       isClosing: false,
       searchValue: '',
-      error: '',
+      errorMsg: '',
       results: '',
       columnWidthMap: {},
       isQuerying: false,
@@ -56,13 +56,13 @@ class QueryAccount extends Component {
       credentials: 'include',
       mode: 'cors',
     }).then(res => res.json()).then(res => {
-      const { error, results } = res;
-      if (error) {
-        if (error === 'Session has expired') {
+      const { error_msg, results } = res;
+      if (error_msg) {
+        if (error_msg === 'Session has expired') {
           location.href = location.origin + '/account/login/';
           return;
         }
-        this.setState({ error, isQuerying: false, results: [] });
+        this.setState({ errorMsg: error_msg, isQuerying: false, results: [] });
       } else {
         
         let columnWidthMap = { 'index': 80 };
@@ -71,10 +71,10 @@ class QueryAccount extends Component {
             columnWidthMap[key] = 200;
           });
         }
-        this.setState({ error: '', results, columnWidthMap, isQuerying: false });
+        this.setState({ errorMsg: '', results, columnWidthMap, isQuerying: false });
       }
     }).catch(err => {
-      this.setState({ error: 'Internal Server Error', isQuerying: false, results: [] });
+      this.setState({ errorMsg: 'Internal Server Error', isQuerying: false, results: [] });
     });
   }
 
@@ -84,7 +84,7 @@ class QueryAccount extends Component {
   }
 
   renderResult = () => {
-    const { error, results, columnWidthMap, isQuerying } = this.state;
+    const { errorMsg, results, columnWidthMap, isQuerying } = this.state;
     if (isQuerying) {
       return (
         <div className="query-account-loading">
@@ -92,9 +92,9 @@ class QueryAccount extends Component {
         </div>
       );
     }
-    if (error) {
+    if (errorMsg) {
       return (
-        <div className="query-account-error">{error}</div>
+        <div className="query-account-error">{errorMsg}</div>
       );
     }
     if (Array.isArray(results) && results.length > 0) {

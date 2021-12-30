@@ -506,7 +506,7 @@ def accounts():
 def add_account():
     owner = session.get("user")
     if not owner:
-        return {'error': 'Session has expired'}, 500
+        return {'error_msg': 'Session has expired'}, 500
 
     account_data = request.get_json()
     host = account_data.get('host', '')
@@ -517,7 +517,7 @@ def add_account():
     account_type = account_data.get('account_type', '')
     error_msg = check_account(host, user, password, account_name, port, account_type)
     if error_msg:
-        return {'error': error_msg}, 500
+        return {'error_msg': error_msg}, 500
 
     account_config = {'host': host, 'user': user, 'port': port, 'account_name': account_name, 'password': password, 'account_type': account_type}
     account = SyncAccounts(
@@ -531,26 +531,22 @@ def add_account():
         db.session.commit()
     except Exception as e:
         logger.error('Add account error: %s', e)
-        return {'error': 'Internal Server Error'}, 500
+        return {'error_msg': str(e)}, 500
     
-    try:
-        return { 'account': account.to_dict() }, 200
-    except Exception as e:
-        logger.error('Add account error: %s', e)
-        return {'error': 'Internal Server Error'}, 500
+    return {'account': account.to_dict()}, 200
 
 
 @app.route('/api/v1/account/<account_id>/query/', methods=['POST'])
 def query(account_id):
     user = session.get("user")
     if not user:
-        return {'error': 'Session has expired'}, 500
+        return {'error_msg': 'Session has expired'}, 500
 
     try:
         account = SyncAccounts.query.filter_by(id=account_id).first().to_dict()
     except Exception as e:
-        logger.error('query account error: %s', e)
-        return {'error': 'Internal Server Error'}, 500
+        logger.error('account not be found: %s', e)
+        return {'error_msg': str(e)}, 500
 
     account_config = account.get('account_config')
     try:
@@ -558,8 +554,8 @@ def query(account_id):
                                port=account_config.get('port'), password=account_config.get('password'),
                                database=account_config.get('account_name'))
     except Exception as e:
-        logger.error('Add account error: %s', e)
-        return {'error': 'Failed to connect to server'}, 500
+        logger.error('connect mysql error: %s', e)
+        return {'error_msg': str(e.args[1])}, 500
 
     try:
         query_data = request.get_json()
@@ -567,9 +563,10 @@ def query(account_id):
         with conn.cursor(pymysql.cursors.DictCursor) as cursor:
             cursor.execute(query)
             query_results = cursor.fetchall()
+        logger.info('user: %s use account: %s execute sql: %s', user, account_id, query)
     except Exception as e:
-        logger.error('Add account error: %s', e)
-        return {'error': 'Internal Server Error'}, 500
+        logger.error('execute sql error: %s', e)
+        return {'error_msg': str(e.args[1])}, 500
     finally:
         conn.close()
 

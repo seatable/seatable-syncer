@@ -19,7 +19,7 @@ class AddAccountDialog extends Component {
       password: '',
       port: 3306,
       accountName: '',
-      error: ''
+      errorMsg: ''
     };
   }
 
@@ -56,19 +56,19 @@ class AddAccountDialog extends Component {
       credentials: 'include',
       mode: 'cors',
     }).then(res => res.json() ).then(data => {
-      const { error, account } = data;
-      if (error) {
-        if (error === 'Session has expired') {
+      const { error_msg, account } = data;
+      if (error_msg) {
+        if (error_msg === 'Session has expired') {
           location.href = location.origin + '/account/login/';
           return;
         }
-        this.setState({ error });
+        this.setState({ errorMsg: error_msg });
       } else {
         this.props.onAddAccount(account);
         this.toggle();
       }
     }).catch(err => {
-      this.setState({ error: 'Internal Server Error' });
+      this.setState({ errorMsg: 'Internal Server Error' });
     });
   }
 
@@ -113,7 +113,7 @@ class AddAccountDialog extends Component {
   }
 
   render() {
-    const { accountType, host, user, password, port, accountName, isShowPassword, error } = this.state;
+    const { accountType, host, user, password, port, accountName, isShowPassword, errorMsg } = this.state;
     const closeButton = (
       <div className="header-close-content" onClick={this.toggle}>
         <i className="dtable-font dtable-icon-x" onClick={this.toggle}></i>
@@ -163,7 +163,9 @@ class AddAccountDialog extends Component {
             <Label>{'Account name'}</Label>
             <Input value={accountName} onChange={this.onAccountNameChange} />
           </FormGroup>
-          <div className="add-account-error">{error}</div>
+          {errorMsg && (
+            <div className="add-account-error">{errorMsg}</div>
+          )}
         </ModalBody>
         <ModalFooter>
           <Button color="secondary" onClick={this.toggle}>
