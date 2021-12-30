@@ -553,9 +553,12 @@ def query(account_id):
         conn = pymysql.connect(host=account_config.get('host'), user=account_config.get('user'),
                                port=account_config.get('port'), password=account_config.get('password'),
                                database=account_config.get('account_name'))
-    except Exception as e:
+    except pymysql.err.OperationalError as e:
         logger.error('connect mysql error: %s', e)
         return {'error_msg': str(e.args[1])}, 500
+    except Exception as e:
+        logger.error('connect mysql error: %s', e)
+        return {'error_msg': str(e)}, 500
 
     try:
         query_data = request.get_json()
@@ -564,9 +567,12 @@ def query(account_id):
             cursor.execute(query)
             query_results = cursor.fetchall()
         logger.info('user: %s use account: %s execute sql: %s', user, account_id, query)
-    except Exception as e:
+    except pymysql.err.ProgrammingError as e:
         logger.error('execute sql error: %s', e)
         return {'error_msg': str(e.args[1])}, 500
+    except Exception as e:
+        logger.error('execute sql error: %s', e)
+        return {'error_msg': str(e)}, 500
     finally:
         conn.close()
 
