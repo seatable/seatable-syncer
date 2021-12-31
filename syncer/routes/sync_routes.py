@@ -248,6 +248,8 @@ def sync_job_api(dtable_uuid, job_id):
             final_detail.update(detail)
             job.detail = json.dumps(final_detail)
 
+        job.is_valid = True
+
         try:
             db.session.add(job)
             db.session.commit()

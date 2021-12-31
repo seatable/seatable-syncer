@@ -16,7 +16,7 @@ pymysql.install_as_MySQLdb()
 from app import SyncJobs, app
 from config import Config
 from email_sync.email_syncer import sync as sync_emails
-from utils import check_imap_account, check_table_columns, email_sync_tables_dict
+from utils import check_imap_account, check_or_create_columns, email_sync_tables_dict
 from utils.constants import JOB_TYPE_EMAIL_SYNC
 
 logger = logging.getLogger(__name__)
@@ -53,12 +53,12 @@ def debug_email_sync_job(db_job: SyncJobs, send_date_str: str=None):
         return
 
     try:
-        email_table, error_msg = check_table_columns(seatable, email_table_id, email_sync_tables_dict['email_table'])
+        email_table, error_msg = check_or_create_columns(seatable, email_table_id, email_sync_tables_dict['email_table'])
         if error_msg:
             logger.error('check email table error: %s', error_msg)
             return
         logger.info('email_table: %s found and is valid, table_name is: %s', email_table_id, email_table.get('name'))
-        link_table, error_msg = check_table_columns(seatable, link_table_id, email_sync_tables_dict['link_table'])
+        link_table, error_msg = check_or_create_columns(seatable, link_table_id, email_sync_tables_dict['link_table'])
         if error_msg:
             logger.error('check link table error: %s', error_msg)
             return

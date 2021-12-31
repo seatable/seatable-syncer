@@ -78,7 +78,7 @@ def get_table_by_seatable(seatable: SeaTableAPI, table_name=None, table_id=None)
     return None
 
 
-def check_table_columns(seatable: SeaTableAPI, table_id, required_columns=None, need_create=False):
+def check_or_create_columns(seatable: SeaTableAPI, table_id, required_columns=None, need_create=False):
     """
     check required columns are whether all are satified
 
@@ -209,13 +209,13 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         email_table = reset_email_table_link_column(seatable, email_table, link_table)
     elif email_table_id and not link_table_id:
         # check email table
-        email_table, error_msg = check_table_columns(seatable, email_table_id)
+        email_table, error_msg = check_or_create_columns(seatable, email_table_id)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 404
         # create link table
         link_table = create_table(seatable, 'Threads', lang=lang, required_columns=email_sync_tables_dict['link_table'])
         # create email table columns
-        email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+        email_table, error_msg = check_or_create_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         # create link column between both tables
@@ -228,7 +228,7 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         email_table = reset_email_table_link_column(seatable, email_table, link_table)
     elif not email_table_id and link_table_id:
         # check link table
-        link_table, error_msg = check_table_columns(seatable, link_table_id)
+        link_table, error_msg = check_or_create_columns(seatable, link_table_id)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 404
         # check Emails column exists or not before create email table
@@ -240,7 +240,7 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         # create email table
         email_table = create_table(seatable, 'Emails', lang=lang, required_columns=email_sync_tables_dict['email_table'])
         # create link table columns
-        link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+        link_table, error_msg = check_or_create_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         # create link column between both tables
@@ -253,11 +253,11 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
         email_table = reset_email_table_link_column(seatable, email_table, link_table)
     else:
         # check email table
-        email_table, error_msg = check_table_columns(seatable, email_table_id)
+        email_table, error_msg = check_or_create_columns(seatable, email_table_id)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 404
         # check link table
-        link_table, error_msg = check_table_columns(seatable, link_table_id)
+        link_table, error_msg = check_or_create_columns(seatable, link_table_id)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 404
         # create link column between both tables
@@ -272,11 +272,11 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
             link_column_exists = True
             break
         # create email table columns
-        email_table, error_msg = check_table_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
+        email_table, error_msg = check_or_create_columns(seatable, email_table.get('_id'), email_sync_tables_dict['email_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         # create link table columns
-        link_table, error_msg = check_table_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
+        link_table, error_msg = check_or_create_columns(seatable, link_table.get('_id'), email_sync_tables_dict['link_table'], True)
         if error_msg:
             return None, None, {'error_msg': error_msg}, 400
         if not link_column_exists:
@@ -291,7 +291,7 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
     return email_table, link_table, None, None
 
 
-def check_tables(existed_tables, target_table_id, required_columns):
+def check_table_and_required_columns(existed_tables, target_table_id, required_columns):
     """
     check target table is whether in existed_tables or not
     check required_columns are whether all in target table or not, including column type check
@@ -349,10 +349,10 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
         # check email-sync tables and columns in them
         metadata = seatable.get_metadata()
         existed_tables = [table for table in metadata.get('tables', [])]
-        _, _, error_msg = check_tables(existed_tables, email_table_id, email_sync_tables_dict['email_table'])
+        _, _, error_msg = check_table_and_required_columns(existed_tables, email_table_id, email_sync_tables_dict['email_table'])
         if error_msg:
             return error_msg
-        _, _, error_msg = check_tables(existed_tables, link_table_id, email_sync_tables_dict['link_table'])
+        _, _, error_msg = check_table_and_required_columns(existed_tables, link_table_id, email_sync_tables_dict['link_table'])
         if error_msg:
             return error_msg
 
