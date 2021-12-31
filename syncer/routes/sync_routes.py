@@ -492,7 +492,7 @@ def accounts():
     if not owner:
         return redirect(url_for('login'))
     try:
-        accounts = SyncAccounts.query.filter().all()
+        accounts = SyncAccounts.query.filter_by(owner=owner)
     except Exception as e:
         logger.error('query accounts error: %s', e)
         return render_template('accounts.html', error='Internet server error')
@@ -506,7 +506,7 @@ def accounts():
 def add_account():
     owner = session.get("user")
     if not owner:
-        return {'error_msg': 'Session has expired'}, 500
+        return {'error_msg': 'Session has expired'}, 400
 
     account_data = request.get_json()
     host = account_data.get('host', '')
@@ -517,7 +517,7 @@ def add_account():
     account_type = account_data.get('account_type', '')
     error_msg = check_account(host, user, password, account_name, port, account_type)
     if error_msg:
-        return {'error_msg': error_msg}, 500
+        return {'error_msg': error_msg}, 400
 
     account_config = {'host': host, 'user': user, 'port': port, 'account_name': account_name, 'password': password, 'account_type': account_type}
     account = SyncAccounts(
@@ -540,13 +540,20 @@ def add_account():
 def query(account_id):
     user = session.get("user")
     if not user:
-        return {'error_msg': 'Session has expired'}, 500
+        return {'error_msg': 'Session has expired'}, 400
+    if not account_id:
+        return {'error_msg': 'account_id invalid'}, 400
 
     try:
-        account = SyncAccounts.query.filter_by(id=account_id).first().to_dict()
+        account = SyncAccounts.query.filter_by(id=account_id, owner=user).first()
     except Exception as e:
         logger.error('account not be found: %s', e)
         return {'error_msg': str(e)}, 500
+
+    if not account:
+        return {'error_msg': 'Account not be found'}, 400
+
+    account = account.to_dict()
 
     account_config = account.get('account_config')
     try:
@@ -572,7 +579,7 @@ def query(account_id):
         return {'error_msg': str(e.args[1])}, 500
     except Exception as e:
         logger.error('execute sql error: %s', e)
-        return {'error_msg': str(e)}, 500
+        return {'error_msg': 'Internal Server Error'}, 500
     finally:
         conn.close()
 
