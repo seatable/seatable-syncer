@@ -13,6 +13,7 @@ from tzlocal import get_localzone
 from config import basedir, Config
 from email_sync.email_syncer import ImapMail
 from utils.constants import JOB_TYPE_EMAIL_SYNC
+import pymysql
 
 logger = logging.getLogger(__name__)
 
@@ -406,3 +407,21 @@ def utc_datetime_to_isoformat_timestr(utc_datetime):
     except Exception as e:
         logger.error(e)
         return ''
+
+
+def check_account(host, user, password, database, port, type):
+    try:
+        port = int(port)
+    except:
+        return 'Port %s invalid' % (port,)
+    if type == 'mysql':
+        try:
+            conn = pymysql.connect(user=user, password=password, database=database, host=host, port=port)
+        except pymysql.err.OperationalError as e:
+            return 'Failed to connect to mysql server %s: %s' % (database, e.args[1])
+        except Exception as e:
+            return 'Failed to connect to mysql server %s: %s' % (database, e)
+        else:
+            conn.close()
+    else:
+        return '%s is not supported' % type

@@ -42,3 +42,21 @@ class SyncJobs(db.Model):
             'last_trigger_time': utc_datetime_to_isoformat_timestr(self.last_trigger_time),
             'is_valid': 1 if self.is_valid else 0
         }
+
+
+class SyncAccounts(db.Model):
+    __tablename__ = 'sync_accounts'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    account_config = db.Column(db.TEXT, nullable=False)
+    account_type = db.Column(db.String(20), nullable=False, index=True)
+    owner = db.Column(db.String(255), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'account_type': self.account_type,
+            'account_config': json.loads(self.account_config),
+            'owner': self.owner,
+            'created_at': utc_datetime_to_isoformat_timestr(self.created_at)
+        }

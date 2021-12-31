@@ -13,3 +13,15 @@ CREATE TABLE `sync_jobs` (
   KEY `is_valid_b4g7k2p9_key` (`is_valid`),
   KEY `job_type_h3l9u7g4_key` (`job_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE `sync_accounts`  (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `account_type` varchar(20) NOT NULL,
+  `account_config` longtext NOT NULL,
+  `owner` varchar(255) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `account_type`(`account_type`),
+  KEY `owner`(`owner`)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8;

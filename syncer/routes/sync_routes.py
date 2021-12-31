@@ -11,11 +11,13 @@ from seatable_api.constants import ColumnTypes
 from app import db
 from config import Config
 from email_sync.email_syncer import sync as sync_emails
-from models.sync_models import SyncJobs
+from models.sync_models import SyncJobs, SyncAccounts
 from scheduler import scheduler_jobs_manager
-from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, utc_datetime_to_isoformat_timestr, check_imap_account
+from utils import check_api_token_and_resources, email_sync_tables_dict, check_email_sync_tables, \
+    utc_datetime_to_isoformat_timestr, check_imap_account, check_account
 from utils.constants import JOB_TYPE_EMAIL_SYNC
-from form.login_form import LoginForm
+from form.form import LoginForm, AccountForm, QueryForm
+import pymysql
 
 logger = logging.getLogger(__name__)
 
@@ -354,7 +356,7 @@ def add_sync_tables_api():
         seatable.rename_column(email_table_name, link_table_name, 'Threads')
     except Exception as e:
         logger.exception(e)
-        logger.error('init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s', 
+        logger.error('init email sync tables api_token: %s, dtable_web_service_url: %s,  email_table_name: %s, link_table_name: %s, lang: %s, error: %s',
                      api_token, Config.DTABLE_WEB_SERVICE_URL, email_table_name, link_table_name, lang, e)
         return {'error_msg': 'Internal Server Error.'}, 500
 
@@ -382,7 +384,7 @@ def run_sync_job_api(job_id):
 
         if mode not in ['ON', 'SINCE']:
             return {'error_msg': 'mode invalid.'}, 400
-        
+
         if not send_date_str:
             send_date_str = str(datetime.now().today())
         else:
@@ -486,6 +488,101 @@ def login_out():
     return redirect(url_for('login'))
 
 
-@app.template_filter('ios_time_formater')
-def ios_time_formater(time_value):
-    return datetime.strftime(datetime.fromisoformat(time_value), '%Y-%m-%d %H:%M:%S') if time_value else time_value
+@app.route('/accounts/', methods=['GET'])
+def accounts():
+    owner = session.get("user")
+    if not owner:
+        return redirect(url_for('login'))
+    try:
+        accounts = SyncAccounts.query.filter_by(owner=owner)
+    except Exception as e:
+        logger.error('query accounts error: %s', e)
+        return render_template('accounts.html', error='Internet server error')
+    account_list = []
+    for account in accounts:
+        account_list.append(account.to_dict())
+    return render_template('accounts.html', accounts=account_list)
+
+
+@app.route('/api/v1/account/add/', methods=['POST'])
+def add_account():
+    owner = session.get("user")
+    if not owner:
+        return {'error_msg': 'Session has expired'}, 400
+
+    account_data = request.get_json()
+    host = account_data.get('host', '')
+    user = account_data.get('user', '')
+    port = int(account_data.get('port', 3306))
+    account_name = account_data.get('account_name', '')
+    password = account_data.get('password', '')
+    account_type = account_data.get('account_type', '')
+    error_msg = check_account(host, user, password, account_name, port, account_type)
+    if error_msg:
+        return {'error_msg': error_msg}, 400
+
+    account_config = {'host': host, 'user': user, 'port': port, 'account_name': account_name, 'password': password, 'account_type': account_type}
+    account = SyncAccounts(
+        account_config=json.dumps(account_config),
+        account_type=account_type,
+        owner=owner,
+        created_at=datetime.utcnow()
+    )
+    try:
+        db.session.add(account)
+        db.session.commit()
+    except Exception as e:
+        logger.error('Add account error: %s', e)
+        return {'error_msg': str(e)}, 500
+    
+    return {'account': account.to_dict()}, 200
+
+
+@app.route('/api/v1/account/<account_id>/query/', methods=['POST'])
+def query(account_id):
+    user = session.get("user")
+    if not user:
+        return {'error_msg': 'Session has expired'}, 400
+    if not account_id:
+        return {'error_msg': 'account_id invalid'}, 400
+
+    try:
+        account = SyncAccounts.query.filter_by(id=account_id, owner=user).first()
+    except Exception as e:
+        logger.error('account not be found: %s', e)
+        return {'error_msg': str(e)}, 500
+
+    if not account:
+        return {'error_msg': 'Account not be found'}, 400
+
+    account = account.to_dict()
+
+    account_config = account.get('account_config')
+    try:
+        conn = pymysql.connect(host=account_config.get('host'), user=account_config.get('user'),
+                               port=account_config.get('port'), password=account_config.get('password'),
+                               database=account_config.get('account_name'))
+    except pymysql.err.OperationalError as e:
+        logger.error('connect mysql error: %s', e)
+        return {'error_msg': str(e.args[1])}, 500
+    except Exception as e:
+        logger.error('connect mysql error: %s', e)
+        return {'error_msg': str(e)}, 500
+
+    try:
+        query_data = request.get_json()
+        query = query_data.get('query', '')
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+            cursor.execute(query)
+            query_results = cursor.fetchall()
+        logger.info('user: %s use account: %s execute sql: %s', user, account_id, query)
+    except pymysql.err.ProgrammingError as e:
+        logger.error('execute sql error: %s', e)
+        return {'error_msg': str(e.args[1])}, 500
+    except Exception as e:
+        logger.error('execute sql error: %s', e)
+        return {'error_msg': 'Internal Server Error'}, 500
+    finally:
+        conn.close()
+
+    return {'results': query_results}, 200

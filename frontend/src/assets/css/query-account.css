@@ -1,0 +1,239 @@
+@keyframes openQueryAccount {
+  from {
+    top: calc(100% - 56px);
+  }
+
+  to {
+    top: 56px;
+  }
+}
+
+@keyframes closeQueryAccount {
+  from {
+    top: 56px;
+  }
+
+  to {
+    top: calc(100%);
+  }
+}
+
+.query-account {
+  width: 100%;
+  height: calc(100% - 56px);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -1px 12px rgb(0 0 0 / 30%);
+  position: fixed;
+  left: 0;
+  border-top: 1px solid #ccc;
+  background-color: #fff;
+  animation: openQueryAccount .3s;
+  animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1.0); /* ease-in-out */
+  animation-fill-mode: forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.query-account.closing-query-account {
+  animation: closeQueryAccount .3s;
+}
+
+.query-account .query-account-header {
+  height: 48px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid #e7eaec;
+  border-radius: 12px 12px 0 0;
+}
+
+.query-account .query-account-header .query-account-header-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.query-account .query-account-header .query-account-header-close {
+  height: 24px;
+  width: 24px;
+  text-align: center;
+  line-height: 24px;
+  cursor: pointer;
+  color:rgb(0 0 0 / 30%);
+}
+
+.query-account .query-account-header-close .dtable-font {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.query-account .query-account-header .query-account-header-close:hover {
+  color:#000;
+}
+
+.query-account .query-account-body {
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.query-account .query-account-body .query-account-query-container {
+  height: 56px;
+  width: 100%;
+  padding: 16px 16px 0;
+  display: flex;
+  align-items: center;
+}
+
+.query-account .query-account-query-container .query-button {
+  margin-left: 16px;
+}
+
+.query-account .query-account-query-container .sql-input {
+  flex: 1;
+}
+
+.query-account .query-account-body .query-account-results-none {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.query-account .query-account-body .query-account-results {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+  width: 100%;
+}
+
+.query-account .query-account-results .query-account-results-container {
+  overflow-x: scroll;
+  max-height: 100%;
+  max-width: 100%;
+  overflow-y: hidden;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+}
+
+.query-account .query-account-results .query-account-results-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.query-account .query-account-results-content .query-account-results-body {
+  flex: 1;
+  overflow-y: scroll;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.query-account .query-account-results-content .query-account-results-header {
+  height: 33px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.query-account .query-account-results-content .query-account-results-footer {
+  height: 32px;
+  width: 100%;
+  overflow: hidden;
+  line-height: 32px;
+  background-color: #f9f9f9;
+  border-top: 1px solid #ccc;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.query-account .query-account-results-content .query-account-result-row {
+  height: 33px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #ccc;
+}
+
+.query-account .query-account-results-header .query-account-result-row {
+  background-color: #f9f9f9;
+}
+
+.query-account .query-account-results-content .query-account-result-cell {
+  height: 100%;
+  flex-shrink: 0;
+  border-right: 1px solid #ccc;
+  padding: 2px 8px;
+  line-height: 28px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.query-account .query-account-result-row .query-account-result-cell:last-child {
+  border-right: none;
+}
+
+.query-account .query-account-results-content .query-account-result-index-cell {
+  text-align: center;
+}
+
+.query-account .query-account-results-body .query-account-result-row:last-child {
+  border-bottom: none;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.query-account .query-account-results-content .query-account-results-count {
+  position: absolute;
+}
+
+.query-account .query-account-results-header .query-account-result-cell {
+  position: relative;
+}
+
+.query-account .query-account-results-header .resize-drag-handel {
+  position: absolute;
+  top: 0px;
+  right: -3px;
+  width: 5px;
+  margin: 3px 0;
+  height: calc(100% - 6px);
+  border-radius: 3px;
+  z-index: 2;
+}
+
+.query-account .query-account-results-header .resize-drag-handel:hover {
+  cursor: col-resize;
+  background-color: #2d7ff9;
+}
+
+.query-account .query-account-results-header .query-account-result-cell {
+  overflow: unset;
+}
+
+.query-account .query-account-results-header .query-account-result-header-cell-content {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.query-account .query-account-loading,
+.query-account .query-account-error {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.query-account .query-account-error {
+  color: red;
+}
