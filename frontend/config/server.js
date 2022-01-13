@@ -62,17 +62,18 @@ const devServerOptions = {
 
 console.log('Dev server options:', devServerOptions);
 
-const devServer = new WebpackDevServer(compiler, devServerOptions);
-devServer.listen(PORT, HOST, function (err, result) {
-  if (err) {
-    console.log(err)
-  }
-
-  console.log(`Listening at ${HOST}:${PORT}`)
-})
 
 try {
-  ['SIGINT', 'SIGTERM'].forEach(function (sig) {
+  const devServer = new WebpackDevServer(compiler, devServerOptions);
+  devServer.listen(PORT, HOST, function (err, result) {
+    if (err) {
+      console.log(err)
+    }
+
+    console.log(`Listening at ${HOST}:${PORT}`)
+  })
+  const ERROR_HANDLE = ['SIGINT', 'SIGTERM'];
+  ERROR_HANDLE.forEach(function (sig) {
     process.on(sig, function () {
       devServer.close();
       process.exit();
