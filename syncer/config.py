@@ -24,6 +24,13 @@ DTABLE_WEB_SERVICE_URL = 'http://127.0.0.1:8000'
 ADMIN_SYNCER_USER = ''
 ADMIN_SYNCER_PASSWORD = ''
 
+LOG_DIR = ''
+
+RUN_INFO_DIR = ''
+
+MAX_EMAIL_SYNC_DURATION_SECONDS = 60 * 30
+EMAIL_SYNC_CHECK_INTERVAL_SECONDS = 60
+
 WEBPACK_LOADER = {
     'STATIC_URL': 'static',
     'BUNDLE_DIR_NAME': os.path.join('/static', 'frontend/'),
@@ -32,7 +39,6 @@ WEBPACK_LOADER = {
     'TIMEOUT': None,
     'IGNORES': []
 }
-
 
 try:
     if os.path.exists('/shared/conf/seatable_syncer_settings.py'):
@@ -44,7 +50,6 @@ else:
     if MYSQL_HOST and MYSQL_USER and MYSQL_PASSWORD:
         SQLALCHEMY_DATABASE_URI = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % \
             (MYSQL_USER, quote_plus(MYSQL_PASSWORD), MYSQL_HOST, MYSQL_PORT, MYSQL_DB)
-
 
 try:
     if os.path.exists('local_settings.py'):

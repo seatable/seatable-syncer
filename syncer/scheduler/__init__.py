@@ -98,5 +98,8 @@ class SchedulerJobsManager:
     def start(self):
         self.scheduler.start()
 
+    def get_all_running_jobs(self):
+        return self.scheduler.get_jobs()
+
 
 scheduler_jobs_manager = SchedulerJobsManager()

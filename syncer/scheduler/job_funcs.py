@@ -1,6 +1,9 @@
 import json
 import logging
+import os
 import time
+import threading
+from gevent import util
 from datetime import datetime, timedelta
 
 import pytz
@@ -8,6 +11,7 @@ from tzlocal import get_localzone  # tzlocal is depend by apscheduler
 from seatable_api.main import SeaTableAPI
 
 from app import app
+from config import RUN_INFO_DIR, MAX_EMAIL_SYNC_DURATION_SECONDS, EMAIL_SYNC_CHECK_INTERVAL_SECONDS
 from email_sync.email_syncer import sync
 from models.sync_models import SyncJobs
 from utils import check_api_token_and_resources, check_imap_account
@@ -77,8 +81,7 @@ def email_sync_job_func(
         mode = 'SINCE'
         date_str = last_day_str
 
-    # sync
-    sync(
+    args = (
         date_str,
         api_token,
         dtable_web_service_url,
@@ -87,6 +90,27 @@ def email_sync_job_func(
         imap_server,
         email_user,
         email_password,
-        imap=imap,
-        mode=mode
     )
+
+    kwargs = {
+        'imap': imap,
+        'mode': mode
+    }
+
+    thread_name = 'EMAIL_SYNC_%s_%s' % (db_job.id, datetime.now())
+    sync_thread = threading.Thread(target=sync, args=args, kwargs=kwargs, daemon=True, name=thread_name)
+    sync_thread.start()
+
+    start = time.time()
+    while True:
+        time.sleep(EMAIL_SYNC_CHECK_INTERVAL_SECONDS)
+        if not sync_thread.is_alive():
+            break
+        running_duration = time.time() - start
+        logger.info('job: %s has been running for %s seconds', db_job, running_duration)
+        if running_duration > MAX_EMAIL_SYNC_DURATION_SECONDS:
+            logger.warning('job: %s detail: %s running too long!', db_job, db_job.detail)
+            info_file_name = 'EMAIL_SYNC_%s_%s_%s.txt' % (db_job.id, date_str, datetime.now().hour)
+            with open(os.path.join(RUN_INFO_DIR, info_file_name), 'w') as f:
+                f.write('\n'.join(util.format_run_info()))
+            break
