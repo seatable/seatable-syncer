@@ -365,14 +365,14 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
     return None
 
 
-def check_imap_account(imap_server, email_user, email_password, return_imap=False):
+def check_imap_account(imap_server, email_user, email_password, return_imap=False, timeout=None):
     """
     check imap server user and password
 
     return: error_msg -> str or None
     """
     try:
-        imap = ImapMail(imap_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
+        imap = ImapMail(imap_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2), timeout=timeout)
         imap.client()
         imap.login()
     except LoginError:
@@ -389,6 +389,7 @@ def check_imap_account(imap_server, email_user, email_password, return_imap=Fals
             return None, 'email: %s login error: %s' % (email_user, e)
 
     if not return_imap:
+        imap.close()
         return None
     else:
         return imap, None

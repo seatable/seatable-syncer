@@ -452,6 +452,14 @@ def run_sync_job_api(job_id):
     }, 200
 
 
+@app.route('/api/v1/error-records/', methods=['GET'])
+def get_running_jobs():
+    error_records = scheduler_jobs_manager.get_error_records()
+    return {
+        'error_records': error_records
+    }, 200
+
+
 @app.route('/account/login/', methods=['POST', 'GET'])
 def login():
     form = LoginForm()

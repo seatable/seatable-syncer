@@ -1,17 +1,21 @@
 import json
 import logging
+import os
 import time
+import threading
 from datetime import datetime, timedelta
+from gevent import util
 
 import pytz
 from tzlocal import get_localzone  # tzlocal is depend by apscheduler
 from seatable_api.main import SeaTableAPI
 
 from app import app
+from config import RUN_INFO_DIR, EMAIL_SYNC_MAX_DURATION_SECONDS, EMAIL_SYNC_CHECK_INTERVAL_SECONDS, EMAIL_SYNC_IMAP_TIMEOUT
 from email_sync.email_syncer import sync
 from models.sync_models import SyncJobs
 from utils import check_api_token_and_resources, check_imap_account
-from utils.exceptions import SchedulerJobInvalidException
+from utils.exceptions import SchedulerJobInvalidException, SchedulerJobExecuteFailException
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,7 @@ def email_sync_job_func(
     error_msg = None
     imap = None
     while try_count:
-        imap, error_msg = check_imap_account(imap_server, email_user, email_password, return_imap=True)
+        imap, error_msg = check_imap_account(imap_server, email_user, email_password, return_imap=True, timeout=EMAIL_SYNC_IMAP_TIMEOUT)
         if imap and not error_msg:
             break
         else:
@@ -77,8 +81,10 @@ def email_sync_job_func(
         mode = 'SINCE'
         date_str = last_day_str
 
-    # sync
-    sync(
+    # because email-sync thread is a sub thread, use this variable to cotact with it
+    result_dest = {}
+
+    args = (
         date_str,
         api_token,
         dtable_web_service_url,
@@ -87,6 +93,39 @@ def email_sync_job_func(
         imap_server,
         email_user,
         email_password,
-        imap=imap,
-        mode=mode
     )
+
+    kwargs = {
+        'imap': imap,
+        'mode': mode,
+        'result_dest': result_dest
+    }
+
+    thread_name = 'EMAIL_SYNC_%s_%s' % (db_job.id, datetime.now())
+    sync_thread = threading.Thread(target=sync, args=args, kwargs=kwargs, daemon=True, name=thread_name)
+    sync_thread.start()
+
+    start = time.time()
+    complete_flag = False
+    while True:
+        time.sleep(EMAIL_SYNC_CHECK_INTERVAL_SECONDS)
+        if not sync_thread.is_alive():
+            complete_flag = True
+            break
+
+        running_duration = time.time() - start
+        logger.info('job: %s has been running for %s seconds', db_job, running_duration)
+        if running_duration > EMAIL_SYNC_MAX_DURATION_SECONDS:
+            logger.warning('job: %s detail: %s running too long!', db_job, db_job.detail)
+            info_file_name = 'EMAIL_SYNC_%s_%s_%s.txt' % (db_job.id, date_str, datetime.now().hour)
+            with open(os.path.join(RUN_INFO_DIR, info_file_name), 'w') as f:
+                f.write('\n'.join(util.format_run_info()))
+            raise SchedulerJobExecuteFailException('run too long, log run info in %s' % info_file_name)
+
+    if not complete_flag:
+        return
+    if not result_dest:
+        logger.error('job: %s running no result', db_job)
+        return
+    if not result_dest.get('success'):
+        raise SchedulerJobExecuteFailException(result_dest.get('error_msg'))

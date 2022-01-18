@@ -26,6 +26,9 @@ class SchedulerJobsManager:
         self.scheduler = GeventScheduler()
         self.scheduler.add_listener(self.update_last_trigger_time, mask=(EVENT_JOB_EXECUTED | EVENT_JOB_ERROR))
         self.scheduler.add_listener(self.invalidate_job, mask=EVENT_JOB_ERROR)
+        self.scheduler.add_listener(self.add_error_record, mask=EVENT_JOB_ERROR)
+
+        self.error_records = []
 
     def update_last_trigger_time(self, event):
         """
@@ -58,6 +61,22 @@ class SchedulerJobsManager:
                 logger.error('invalidate job: %s error: %s, scheduled_run_time: %s', job_id, e, scheduled_run_time)
             else:
                 self.remove_job(job_id)
+
+    def add_error_record(self, event):
+        job_id = event.job_id
+        scheduler_run_time = event.scheduled_run_time
+        if isinstance(event.exception, SchedulerJobInvalidException):
+            return
+        self.error_records.append({
+            'job_id': job_id,
+            'scheduler_run_time': scheduler_run_time,
+            'error_msg': str(event.exception),
+            'traceback': event.traceback
+        })
+        self.error_records = self.error_records[-20:]
+
+    def get_error_records(self):
+        return self.error_records
 
     def add_job(self, db_job):
         logger.info('add job: %s to scheduler...', db_job)
@@ -97,6 +116,9 @@ class SchedulerJobsManager:
 
     def start(self):
         self.scheduler.start()
+
+    def get_all_running_jobs(self):
+        return self.scheduler.get_jobs()
 
 
 scheduler_jobs_manager = SchedulerJobsManager()
