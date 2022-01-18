@@ -125,7 +125,7 @@ def email_sync_job_func(
     if not complete_flag:
         return
     if not result_dest:
-        logger.error('job: %s running no result', db_job)
+        logger.info('job: %s running no result', db_job)
         return
     if not result_dest.get('success'):
         raise SchedulerJobExecuteFailException(result_dest.get('error_msg'))
