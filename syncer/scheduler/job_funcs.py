@@ -11,7 +11,7 @@ from tzlocal import get_localzone  # tzlocal is depend by apscheduler
 from seatable_api.main import SeaTableAPI
 
 from app import app
-from config import RUN_INFO_DIR, MAX_EMAIL_SYNC_DURATION_SECONDS, EMAIL_SYNC_CHECK_INTERVAL_SECONDS
+from config import RUN_INFO_DIR, EMAIL_SYNC_MAX_DURATION_SECONDS, EMAIL_SYNC_CHECK_INTERVAL_SECONDS, EMAIL_SYNC_IMAP_TIMEOUT
 from email_sync.email_syncer import sync
 from models.sync_models import SyncJobs
 from utils import check_api_token_and_resources, check_imap_account
@@ -49,7 +49,7 @@ def email_sync_job_func(
     error_msg = None
     imap = None
     while try_count:
-        imap, error_msg = check_imap_account(imap_server, email_user, email_password, return_imap=True, timeout=60)
+        imap, error_msg = check_imap_account(imap_server, email_user, email_password, return_imap=True, timeout=EMAIL_SYNC_IMAP_TIMEOUT)
         if imap and not error_msg:
             break
         else:
@@ -115,7 +115,7 @@ def email_sync_job_func(
 
         running_duration = time.time() - start
         logger.info('job: %s has been running for %s seconds', db_job, running_duration)
-        if running_duration > MAX_EMAIL_SYNC_DURATION_SECONDS:
+        if running_duration > EMAIL_SYNC_MAX_DURATION_SECONDS:
             logger.warning('job: %s detail: %s running too long!', db_job, db_job.detail)
             info_file_name = 'EMAIL_SYNC_%s_%s_%s.txt' % (db_job.id, date_str, datetime.now().hour)
             with open(os.path.join(RUN_INFO_DIR, info_file_name), 'w') as f:

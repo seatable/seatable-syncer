@@ -365,7 +365,7 @@ def check_api_token_and_resources(api_token, dtable_web_service_url, dtable_uuid
     return None
 
 
-def check_imap_account(imap_server, email_user, email_password, return_imap=False, timeout=60):
+def check_imap_account(imap_server, email_user, email_password, return_imap=False, timeout=None):
     """
     check imap server user and password
 
