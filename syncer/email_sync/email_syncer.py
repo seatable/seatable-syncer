@@ -1,5 +1,6 @@
 import argparse
 import logging
+import socket
 import ssl
 import sys
 import time
@@ -209,12 +210,12 @@ def str_2_datetime(s: str):
     raise Exception(f"date {s} can't be transfered to datetime")
 
 
-def get_emails(send_date, email_server, email_user, email_password, imap: ImapMail=None, mode='ON'):
+def get_emails(send_date, email_server, email_user, email_password, imap: ImapMail=None, mode='ON', timeout=None):
     """
     return: email list, [email1, email2...], email is without thread id
     """
     if not imap:
-        imap = ImapMail(email_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2))
+        imap = ImapMail(email_server, email_user, email_password, ssl_context=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2), timeout=timeout)
         imap.client()
         logger.debug('imap: %s client successfully!', email_server)
         imap.login()
@@ -453,15 +454,26 @@ def sync(send_date,
          email_user,
          email_password,
          imap=None,
-         mode='ON'):
+         mode='ON',
+         timeout=None,
+         result_dest: dict=None):
     try:
         seatable = SeaTableAPI(api_token, dtable_web_service_url)
         seatable.auth()
         logger.debug('api_token: %s, dtable_web_service_url: %s auth successfully!', api_token, dtable_web_service_url)
 
-        # get emails on send_date
-        email_list = sorted(get_emails(send_date, email_server, email_user, email_password, imap=imap, mode=mode), key=lambda x: str_2_datetime(x['Date']))
-        if not email_list:
+        try:
+            # get emails on send_date
+            email_list = sorted(get_emails(send_date, email_server, email_user, email_password, imap=imap, mode=mode, timeout=timeout), key=lambda x: str_2_datetime(x['Date']))
+            if not email_list:
+                logger.info('email: %s send_date: %s mode: %s get 0 email(s)', email_user, send_date, mode)
+                return
+        except socket.timeout as e:
+            logger.exception(e)
+            logger.error('get emails timeout: %s', e)
+            if result_dest:
+                result_dest['success'] = False
+                result_dest['error_msg'] = 'get emails timeout error: %s' % e
             return
 
         logger.info(f'fetch {len(email_list)} emails')
@@ -491,9 +503,14 @@ def sync(send_date,
 
         # update threads Last Updated and Emails
         update_threads(seatable, email_table_name, link_table_name, email_list, to_be_updated_thread_dict)
+        if result_dest:
+            result_dest['success'] = True
     except Exception as e:
         logger.exception(e)
         logger.error('sync and update link error: %s', e)
+        if result_dest:
+            result_dest['success'] = False
+            result_dest['error_msg'] = 'sync and update link error: %s' % e
 
 
 def main():

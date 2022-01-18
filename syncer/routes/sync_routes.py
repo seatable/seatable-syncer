@@ -452,24 +452,12 @@ def run_sync_job_api(job_id):
     }, 200
 
 
-@app.route('/api/v1/all-running-jobs/', methods=['GET'])
+@app.route('/api/v1/error-records/', methods=['GET'])
 def get_running_jobs():
-    jobs = scheduler_jobs_manager.get_all_running_jobs()
-    jobs = [{
-            'version': 1,
-            'id': job.id,
-            'func': job.func_ref,
-            # 'trigger': job.trigger,
-            'executor': job.executor,
-            # 'args': job.args,
-            # 'kwargs': job.kwargs,
-            'name': job.name,
-            'misfire_grace_time': job.misfire_grace_time,
-            'coalesce': job.coalesce,
-            'max_instances': job.max_instances,
-            'next_run_time': job.next_run_time
-        } for job in jobs]
-    return {'jobs': jobs}, 200
+    error_records = scheduler_jobs_manager.get_error_records()
+    return {
+        'error_records': error_records
+    }, 200
 
 
 @app.route('/account/login/', methods=['POST', 'GET'])
