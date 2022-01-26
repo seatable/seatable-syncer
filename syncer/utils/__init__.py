@@ -167,7 +167,7 @@ def check_email_sync_tables(seatable: SeaTableAPI, email_table_id, link_table_id
     :return email_table -> dict or None, link_table -> dict or None, error_body -> dict or None, status_code -> int or None
     """
     if (email_table_id or link_table_id) and email_table_id == link_table_id:
-        return {'error_msg': 'email_table_id or link_table_id invalid.'}, 400, None, None
+        return None, None, {'error_msg': 'email_table_id or link_table_id invalid.'}, 400
 
     email_table_link_display_column = 'From'
 
