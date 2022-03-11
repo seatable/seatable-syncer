@@ -13,6 +13,7 @@ from email.parser import Parser
 from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
 from tzlocal import get_localzone
+from bs4 import BeautifulSoup
 
 
 logging.basicConfig(
@@ -51,6 +52,25 @@ class ImapMail(object):
             value = value.decode(charset)
         return value
 
+    @staticmethod
+    def parse_content(part):
+        content = ''
+        charset = part.get_content_charset()
+        if charset:
+            try:
+                content = part.get_payload(decode=True).decode(charset)
+            except LookupError:
+                content = part.get_payload()
+                logger.info('unknown encoding: %s' % charset)
+            except UnicodeDecodeError:
+                content = part.get_payload()
+                logger.info('%s can\'t decode unicode' % charset)
+            except Exception as e:
+                logger.error(e)
+        else:
+            content = part.get_payload()
+        return content
+
     def get_content(self, msg):
         content = ''
         for part in msg.walk():
@@ -62,20 +82,12 @@ class ImapMail(object):
 
             content_type = part.get_content_type()
             if content_type == 'text/plain':
-                charset = part.get_content_charset()
-                if charset:
-                    try:
-                        content = part.get_payload(decode=True).decode(charset)
-                    except LookupError:
-                        content = part.get_payload()
-                        logger.info('unknown encoding: %s' % charset)
-                    except UnicodeDecodeError:
-                        content = part.get_payload()
-                        logger.info('%s can\'t decode unicode' % charset)
-                    except Exception as e:
-                        logger.error(e)
-                else:
-                    content = part.get_payload()
+                content = self.parse_content(part)
+                return content
+            if content_type == 'text/html':
+                content = self.parse_content(part)
+                soup = BeautifulSoup(content, 'html.parser')
+                content = soup.get_text()
         return content
 
     def get_attachments(self, msg):
