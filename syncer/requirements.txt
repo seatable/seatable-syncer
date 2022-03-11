@@ -11,3 +11,4 @@ gevent-openssl
 tzlocal==2.1
 flask-webpack-loader
 Flask-WTF
+beautifulsoup4
