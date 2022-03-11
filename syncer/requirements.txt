@@ -10,3 +10,4 @@ gevent
 tzlocal
 flask-webpack-loader
 Flask-WTF
+beautifulsoup4
