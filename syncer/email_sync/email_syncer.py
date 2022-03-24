@@ -52,6 +52,25 @@ class ImapMail(object):
             value = value.decode(charset)
         return value
 
+    @staticmethod
+    def parse_content(part):
+        content = ''
+        charset = part.get_content_charset()
+        if charset:
+            try:
+                content = part.get_payload(decode=True).decode(charset)
+            except LookupError:
+                content = part.get_payload()
+                logger.info('unknown encoding: %s' % charset)
+            except UnicodeDecodeError:
+                content = part.get_payload()
+                logger.info('%s can\'t decode unicode' % charset)
+            except Exception as e:
+                logger.error(e)
+        else:
+            content = part.get_payload()
+        return content
+
     def get_content(self, msg):
         plain_content = ''
         html_content = ''
@@ -63,26 +82,10 @@ class ImapMail(object):
                 continue
 
             content_type = part.get_content_type()
-            if content_type == 'text/plain' or content_type == 'text/html':
-                content = ''
-                charset = part.get_content_charset()
-                if charset:
-                    try:
-                        content = part.get_payload(decode=True).decode(charset)
-                    except LookupError:
-                        content = part.get_payload()
-                        logger.info('unknown encoding: %s' % charset)
-                    except UnicodeDecodeError:
-                        content = part.get_payload()
-                        logger.info('%s can\'t decode unicode' % charset)
-                    except Exception as e:
-                        logger.error(e)
-                else:
-                    content = part.get_payload()
-                if content_type == 'text/plain':
-                    plain_content = content
-                elif content_type == 'text/html':
-                    html_content = '```' + content + '```'
+            if content_type == 'text/plain':
+                plain_content = self.parse_content(part)
+            elif content_type == 'text/html':
+                html_content = '```' + self.parse_content(part) + '```'
 
         return plain_content, html_content
 
