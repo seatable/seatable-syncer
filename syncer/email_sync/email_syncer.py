@@ -52,8 +52,28 @@ class ImapMail(object):
             value = value.decode(charset)
         return value
 
-    def get_content(self, msg):
+    @staticmethod
+    def parse_content(part):
         content = ''
+        charset = part.get_content_charset()
+        if charset:
+            try:
+                content = part.get_payload(decode=True).decode(charset)
+            except LookupError:
+                content = part.get_payload()
+                logger.info('unknown encoding: %s' % charset)
+            except UnicodeDecodeError:
+                content = part.get_payload()
+                logger.info('%s can\'t decode unicode' % charset)
+            except Exception as e:
+                logger.error(e)
+        else:
+            content = part.get_payload()
+        return content
+
+    def get_content(self, msg):
+        plain_content = ''
+        html_content = ''
         for part in msg.walk():
             if part.is_multipart():
                 continue
@@ -63,21 +83,11 @@ class ImapMail(object):
 
             content_type = part.get_content_type()
             if content_type == 'text/plain':
-                charset = part.get_content_charset()
-                if charset:
-                    try:
-                        content = part.get_payload(decode=True).decode(charset)
-                    except LookupError:
-                        content = part.get_payload()
-                        logger.info('unknown encoding: %s' % charset)
-                    except UnicodeDecodeError:
-                        content = part.get_payload()
-                        logger.info('%s can\'t decode unicode' % charset)
-                    except Exception as e:
-                        logger.error(e)
-                else:
-                    content = part.get_payload()
-        return content
+                plain_content = self.parse_content(part)
+            elif content_type == 'text/html':
+                html_content = '```' + self.parse_content(part) + '```'
+
+        return plain_content, html_content
 
     def get_attachments(self, msg):
         file_list = []
@@ -139,8 +149,9 @@ class ImapMail(object):
             logger.warning('account: %s message: %s no sender!', self.user, mail)
         if not header_info['To']:
             logger.warning('account: %s message: %s no recipient!', self.user, mail)
-        content = self.get_content(msg)
-        email_dict['Content'] = content
+        plain_content, html_content = self.get_content(msg)
+        email_dict['Content'] = plain_content
+        email_dict['HTML Content'] = html_content
         email_dict['Attachment'] = self.get_attachments(msg)
         email_dict['UID'] = str(mail)
         email_dict['From'] = header_info.get('From')
