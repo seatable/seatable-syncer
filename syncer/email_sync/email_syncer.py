@@ -53,7 +53,8 @@ class ImapMail(object):
         return value
 
     def get_content(self, msg):
-        content = ''
+        plain_content = ''
+        html_content = ''
         for part in msg.walk():
             if part.is_multipart():
                 continue
@@ -62,7 +63,8 @@ class ImapMail(object):
                 continue
 
             content_type = part.get_content_type()
-            if content_type == 'text/plain':
+            if content_type == 'text/plain' or content_type == 'text/html':
+                content = ''
                 charset = part.get_content_charset()
                 if charset:
                     try:
@@ -77,7 +79,12 @@ class ImapMail(object):
                         logger.error(e)
                 else:
                     content = part.get_payload()
-        return content
+                if content_type == 'text/plain':
+                    plain_content = content
+                elif content_type == 'text/html':
+                    html_content = '```' + content + '```'
+
+        return plain_content, html_content
 
     def get_attachments(self, msg):
         file_list = []
@@ -139,8 +146,9 @@ class ImapMail(object):
             logger.warning('account: %s message: %s no sender!', self.user, mail)
         if not header_info['To']:
             logger.warning('account: %s message: %s no recipient!', self.user, mail)
-        content = self.get_content(msg)
-        email_dict['Content'] = content
+        plain_content, html_content = self.get_content(msg)
+        email_dict['Content'] = plain_content
+        email_dict['HTML Content'] = html_content
         email_dict['Attachment'] = self.get_attachments(msg)
         email_dict['UID'] = str(mail)
         email_dict['From'] = header_info.get('From')
