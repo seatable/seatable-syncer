@@ -453,9 +453,9 @@ def update_emails(seatable, email_table_name, email_list):
 
 def upload_attachments(seatable: SeaTableAPI, email_list):
     for email in email_list:
-        file_list = email.get('Attachment', [])
+        file_list = email.pop('Attachment', [])
         filename2content_id = email.pop('filename2content_id', {})
-        html_content = email.get('HTML Content', '')
+        html_content = email.pop('HTML Content', '')
         filename2url = {}
         file_info_list = []
         for file in file_list:
