@@ -4,6 +4,7 @@ import socket
 import ssl
 import sys
 import time
+import re
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -91,13 +92,21 @@ class ImapMail(object):
 
     def get_attachments(self, msg):
         file_list = []
+        content_info = {}
         for part in msg.walk():
+            content_id = part.get('Content-ID')
             filename = part.get_filename()
-            if filename is not None:
-                filename = self.decode_str(filename)
+            content_type = part.get_content_type()
+
+            # filename maybe empty if content-type is image
+            if filename is not None or (content_id is not None and 'image' in content_type):
                 data = part.get_payload(decode=True)
+                filename = self.decode_str(filename) if filename else content_id[1:-1] + '.' + content_type[6:]
                 file_list.append({'file_name': filename, 'file_data': data})
-        return file_list
+
+            if content_id is not None and 'image' in content_type:
+                content_info[filename] = content_id[1:-1]
+        return file_list, content_info
 
     def get_email_header(self, msg):
         header_info = {}
@@ -150,9 +159,11 @@ class ImapMail(object):
         if not header_info['To']:
             logger.warning('account: %s message: %s no recipient!', self.user, mail)
         plain_content, html_content = self.get_content(msg)
+        file_list, content_info = self.get_attachments(msg)
         email_dict['Content'] = plain_content
         email_dict['HTML Content'] = html_content
-        email_dict['Attachment'] = self.get_attachments(msg)
+        email_dict['filename2content_id'] = content_info
+        email_dict['Attachment'] = file_list
         email_dict['UID'] = str(mail)
         email_dict['From'] = header_info.get('From')
         email_dict['To'] = header_info.get('To')
@@ -443,6 +454,9 @@ def update_emails(seatable, email_table_name, email_list):
 def upload_attachments(seatable: SeaTableAPI, email_list):
     for email in email_list:
         file_list = email.pop('Attachment', [])
+        filename2content_id = email.pop('filename2content_id', {})
+        html_content = email.pop('HTML Content', '')
+        filename2url = {}
         file_info_list = []
         for file in file_list:
             file_name = file.get('file_name')
@@ -450,9 +464,18 @@ def upload_attachments(seatable: SeaTableAPI, email_list):
             try:
                 file_info = seatable.upload_bytes_file(file_name, file_data)
                 file_info_list.append(file_info)
+                filename2url[file_name] = file_info['url']
             except Exception as e:
                 logger.error('upload email: %s attachment: %s error: %s', email.get('Message ID'), file_name, e)
         email['Attachment'] = file_info_list
+
+        # deal html content image
+        # replace cid with real image url
+        for file_name in filename2content_id:
+            repl = filename2url.get(file_name)
+            rep = re.compile(r'cid:%s' % re.escape(filename2content_id[file_name]))
+            html_content = rep.sub(repl, html_content, 0)
+        email['HTML Content'] = html_content
     return email_list
 
 
