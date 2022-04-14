@@ -473,7 +473,7 @@ def upload_attachments(seatable: SeaTableAPI, email_list):
         # replace cid with real image url
         for file_name in filename2content_id:
             repl = filename2url.get(file_name)
-            rep = re.compile(r'cid:' + re.escape(filename2content_id[file_name]))
+            rep = re.compile(r'cid:%s' % re.escape(filename2content_id[file_name]))
             html_content = rep.sub(repl, html_content, 0)
         email['HTML Content'] = html_content
     return email_list
