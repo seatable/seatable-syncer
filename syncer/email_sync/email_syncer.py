@@ -504,18 +504,18 @@ def sync(send_date,
                 return
         except socket.timeout as e:
             logger.exception(e)
-            logger.error('get emails timeout: %s', e)
+            logger.error('email: %s get emails timeout: %s', email_user, e)
             if result_dest:
                 result_dest['success'] = False
                 result_dest['error_msg'] = 'get emails timeout error: %s' % e
             return
 
-        logger.info(f'fetch {len(email_list)} emails')
+        logger.info(f'email: {email_user} fetch {len(email_list)} emails')
 
         # update thread id of emails
         email_list, new_thread_rows, to_be_updated_thread_dict = update_email_thread_ids(seatable, email_table_name, send_date, email_list)
-        logger.info(f'need to be inserted {len(email_list)} emails')
-        logger.info(f'need to be inserted {len(new_thread_rows)} thread rows')
+        logger.info(f'email: {email_user}, need to be inserted {len(email_list)} emails')
+        logger.info(f'email: {email_user}, need to be inserted {len(new_thread_rows)} thread rows')
         if not email_list:
             return
 
@@ -541,7 +541,7 @@ def sync(send_date,
             result_dest['success'] = True
     except Exception as e:
         logger.exception(e)
-        logger.error('sync and update link error: %s', e)
+        logger.error('email: %s sync and update link error: %s', email_user, e)
         if result_dest:
             result_dest['success'] = False
             result_dest['error_msg'] = 'sync and update link error: %s' % e
