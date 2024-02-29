@@ -24,6 +24,7 @@ class LogSyncer(object):
         self.r = redis.Redis(
             host=redis_host, port=redis_port, db=redis_db, password=redis_password)
         self.batch_count = 10
+        self.wait_timout = 30
 
     def now(self):
         return str(datetime.now())
@@ -73,6 +74,11 @@ class LogSyncer(object):
 
         while True:
             try:
+                start = time.time()
+                while True:
+                    if self.r.llen(filebeat_key) > self.batch_count or time.time() - start > self.wait_timout:
+                        break
+                    time.sleep(5)
                 logs = self.r.lpop(filebeat_key, self.batch_count)
                 if not logs:
                     time.sleep(30)
