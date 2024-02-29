@@ -23,6 +23,7 @@ class LogSyncer(object):
         self.base = Base(api_token, server_url)
         self.r = redis.Redis(
             host=redis_host, port=redis_port, db=redis_db, password=redis_password)
+        self.batch_count = 10
 
     def now(self):
         return str(datetime.now())
@@ -39,29 +40,32 @@ class LogSyncer(object):
                 print(self.now(), type(e), e)
                 time.sleep(30)
 
-    def send(self, log):
-        log = json.loads(log)
-        msg = log['message']
-        if re.match(DATETIME_MATCH_1, msg):
-            log_time = re.match(DATETIME_MATCH_1, msg).group(1)
-        elif re.match(DATETIME_MATCH_2, msg):
-            log_time = re.match(DATETIME_MATCH_2, msg).group(1).replace('T', ' ')
-        elif re.match(DATETIME_MATCH_3, msg):
-            log_time = re.match(DATETIME_MATCH_3, msg).group(1)
-        elif re.match(DATETIME_MATCH_4, msg):
-            log_time = re.match(DATETIME_MATCH_4, msg).group(1).replace('T', ' ')
-        else:
-            log_time = self.now()
-        msg = '```\n' + msg + '\n```'
-        service = '-'.join(log['tags'])
-        print(self.now(), service, log_time)
+    def send(self, logs):
+        rows = []
+        for log in logs:
+            logs = json.loads(log)
+            msg = logs['message']
+            if re.match(DATETIME_MATCH_1, msg):
+                log_time = re.match(DATETIME_MATCH_1, msg).group(1)
+            elif re.match(DATETIME_MATCH_2, msg):
+                log_time = re.match(DATETIME_MATCH_2, msg).group(1).replace('T', ' ')
+            elif re.match(DATETIME_MATCH_3, msg):
+                log_time = re.match(DATETIME_MATCH_3, msg).group(1)
+            elif re.match(DATETIME_MATCH_4, msg):
+                log_time = re.match(DATETIME_MATCH_4, msg).group(1).replace('T', ' ')
+            else:
+                log_time = self.now()
+            msg = '```\n' + msg + '\n```'
+            service = '-'.join(logs['tags'])
+            print(self.now(), service, log_time)
 
-        row_data = {
-            'Service': service,
-            'Time': log_time,
-            'Log': msg
-        }
-        self.base.append_row(table_name, row_data)
+            row_data = {
+                'Service': service,
+                'Time': log_time,
+                'Log': msg
+            }
+            rows.append(row_data)
+        self.base.big_data_insert_rows(table_name, rows)
 
     def start(self):
         print(self.now(), 'Logs count:', self.count())
@@ -69,12 +73,12 @@ class LogSyncer(object):
 
         while True:
             try:
-                log = self.r.lpop(filebeat_key)
-                if not log:
+                logs = self.r.lpop(filebeat_key, self.batch_count)
+                if not logs:
                     time.sleep(30)
                     continue
 
-                self.send(log)
+                self.send(logs)
                 time.sleep(0.5)
             except ConnectionError as e:
                 print(self.now(), type(e), e)
