@@ -6,19 +6,9 @@ __pycache__
 *log
 
 local_settings.py
-email_syncer_settings.py
 log_syncer_settings.py
 base_syncer_settings.py
 
 sync_settings.py
 
 test-compose.yml
-
-#frontend
-frontend/webpack-stats.dev.json
-frontend/webpack-stats.pro.json
-frontend/node_modules
-frontend/build
-
-#frontend build
-static/frontend
