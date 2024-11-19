@@ -3,6 +3,7 @@
 import re
 import time
 import json
+import logging
 import redis
 from datetime import datetime
 from seatable_api import Base
@@ -15,6 +16,11 @@ DATETIME_MATCH_1 = r'^(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2}:\d{1,2})'
 DATETIME_MATCH_2 = r'^(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2})'
 DATETIME_MATCH_3 = r'^\[(\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2}:\d{1,2})'
 DATETIME_MATCH_4 = r'^\[(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2})'
+
+logging.basicConfig(
+    format="[%(asctime)s] [%(levelname)s] %(name)s %(filename)s:%(lineno)s %(funcName)s %(message)s",
+    level=logging.INFO
+)
 
 
 class LogSyncer(object):
@@ -38,7 +44,7 @@ class LogSyncer(object):
                 self.base.auth()
                 break
             except Exception as e:
-                print(self.now(), type(e), e)
+                logging.exception(e)
                 time.sleep(30)
 
     def send(self, logs):
@@ -58,7 +64,7 @@ class LogSyncer(object):
                 log_time = self.now()
             msg = '```\n' + msg + '\n```'
             service = '-'.join(logs['tags'])
-            print(self.now(), service, log_time)
+            logging.info('service: %s', service)
 
             row_data = {
                 'Service': service,
@@ -69,7 +75,7 @@ class LogSyncer(object):
         self.base.big_data_insert_rows(table_name, rows)
 
     def start(self):
-        print(self.now(), 'Logs count:', self.count())
+        logging.info('Logs count: %s', self.count())
         self.base.auth()
 
         while True:
@@ -87,14 +93,14 @@ class LogSyncer(object):
                 self.send(logs)
                 time.sleep(0.5)
             except ConnectionError as e:
-                print(self.now(), type(e), e)
+                logging.exception('connection error: %s', e)
                 time.sleep(30)
                 self.base_auth()
             except redis.exceptions.ConnectionError as e:
-                print(self.now(), type(e), e)
+                logging.exception('redis error: %s', e)
                 time.sleep(30)
             except Exception as e:
-                print(self.now(), type(e), e)
+                logging.exception(e)
                 time.sleep(30)
 
 
